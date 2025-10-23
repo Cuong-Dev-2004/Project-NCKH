@@ -1,6 +1,5 @@
 import { useState } from "react";
 
-
 function Booking() {
     const [formData, setFormData] = useState({
         name: "",
@@ -29,8 +28,9 @@ function Booking() {
 
     return (
         <section className="w-full bg-gray-50 py-10">
-            <div className="mx-auto max-w-2xl bg-white p-8 rounded-xl shadow">
-                <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">
+            <div className="mx-auto max-w-2xl p-8 rounded-xl shadow">
+                {/* Thay đổi text-gray-900 thành text-black */}
+                <h2 className="text-2xl font-bold text-black mb-6 text-center">
                     Đặt Tour Tùy Chỉnh
                 </h2>
                 <form onSubmit={handleSubmit} className="space-y-5">
@@ -41,7 +41,8 @@ function Booking() {
                         placeholder="Họ và tên"
                         value={formData.name}
                         onChange={handleChange}
-                        className="w-full border p-3 rounded"
+                        // Thêm text-black và placeholder:text-black
+                        className="w-full border p-3 rounded text-black placeholder:text-black"
                         required
                     />
                     <input
@@ -50,7 +51,8 @@ function Booking() {
                         placeholder="Email"
                         value={formData.email}
                         onChange={handleChange}
-                        className="w-full border p-3 rounded"
+                        // Thêm text-black và placeholder:text-black
+                        className="w-full border p-3 rounded text-black placeholder:text-black"
                         required
                     />
                     <input
@@ -59,7 +61,8 @@ function Booking() {
                         placeholder="Số điện thoại"
                         value={formData.phone}
                         onChange={handleChange}
-                        className="w-full border p-3 rounded"
+                        // Thêm text-black và placeholder:text-black
+                        className="w-full border p-3 rounded text-black placeholder:text-black"
                         required
                     />
                     <input
@@ -68,7 +71,8 @@ function Booking() {
                         placeholder="Quốc tịch"
                         value={formData.nationality}
                         onChange={handleChange}
-                        className="w-full border p-3 rounded"
+                        // Thêm text-black và placeholder:text-black
+                        className="w-full border p-3 rounded text-black placeholder:text-black"
                     />
 
                     {/* Điểm đến & thời gian */}
@@ -78,7 +82,8 @@ function Booking() {
                         placeholder="Điểm đến mong muốn"
                         value={formData.destination}
                         onChange={handleChange}
-                        className="w-full border p-3 rounded"
+                        // Thêm text-black và placeholder:text-black
+                        className="w-full border p-3 rounded text-black placeholder:text-black"
                         required
                     />
                     <div className="flex gap-3">
@@ -87,7 +92,8 @@ function Booking() {
                             name="startDate"
                             value={formData.startDate}
                             onChange={handleChange}
-                            className="flex-1 border p-3 rounded"
+                            // Thêm text-black
+                            className="flex-1 border p-3 rounded text-black"
                             required
                         />
                         <input
@@ -95,7 +101,8 @@ function Booking() {
                             name="endDate"
                             value={formData.endDate}
                             onChange={handleChange}
-                            className="flex-1 border p-3 rounded"
+                            // Thêm text-black
+                            className="flex-1 border p-3 rounded text-black"
                             required
                         />
                     </div>
@@ -105,7 +112,8 @@ function Booking() {
                         name="language"
                         value={formData.language}
                         onChange={handleChange}
-                        className="w-full border p-3 rounded"
+                        // Thêm text-black
+                        className="w-full border p-3 rounded text-black"
                     >
                         <option value="">Chọn ngôn ngữ hướng dẫn viên</option>
                         <option value="english">Tiếng Anh</option>
@@ -118,7 +126,8 @@ function Booking() {
                         name="guideStyle"
                         value={formData.guideStyle}
                         onChange={handleChange}
-                        className="w-full border p-3 rounded"
+                        // Thêm text-black
+                        className="w-full border p-3 rounded text-black"
                     >
                         <option value="">Phong cách hướng dẫn</option>
                         <option value="culture">Văn hóa</option>
@@ -135,7 +144,8 @@ function Booking() {
                             min="1"
                             value={formData.people}
                             onChange={handleChange}
-                            className="flex-1 border p-3 rounded"
+                            // Thêm text-black và placeholder:text-black
+                            className="flex-1 border p-3 rounded text-black placeholder:text-black"
                             placeholder="Số lượng khách"
                         />
                         <input
@@ -143,7 +153,8 @@ function Booking() {
                             name="budget"
                             value={formData.budget}
                             onChange={handleChange}
-                            className="flex-1 border p-3 rounded"
+                            // Thêm text-black và placeholder:text-black
+                            className="flex-1 border p-3 rounded text-black placeholder:text-black"
                             placeholder="Ngân sách dự kiến (USD)"
                         />
                     </div>
@@ -154,14 +165,16 @@ function Booking() {
                         value={formData.notes}
                         onChange={handleChange}
                         rows="4"
-                        className="w-full border p-3 rounded"
+                        // Thêm text-black và placeholder:text-black
+                        className="w-full border p-3 rounded text-black placeholder:text-black"
                         placeholder="Yêu cầu đặc biệt (ăn chay, có trẻ em, hoạt động đêm...)"
                     ></textarea>
 
                     {/* Submit */}
                     <button
                         type="submit"
-                        className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition"
+                        // Thay đổi text-white thành text-black
+                        className="w-full bg-blue-600 text-black py-3 rounded-lg hover:bg-blue-700 transition"
                     >
                         Gửi yêu cầu đặt tour
                     </button>
@@ -169,7 +182,6 @@ function Booking() {
             </div>
         </section>
     );
-
 }
 
 export default Booking;

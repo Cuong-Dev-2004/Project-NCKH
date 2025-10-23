@@ -1,6 +1,7 @@
 const Booking = require("../model/bookingSchema");
 
-// Tạo booking mới
+
+
 exports.createBooking = async (req, res) => {
     try {
         const { touristId, guideId, startDate, endDate, location } = req.body;
