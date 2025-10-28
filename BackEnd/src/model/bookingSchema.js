@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 
 const bookingSchema = new mongoose.Schema({
     touristId: { type: mongoose.Schema.Types.ObjectId, ref: "Tourist" },
@@ -10,3 +11,4 @@ const bookingSchema = new mongoose.Schema({
     rating: Number,
     review: String
 }, { timestamps: true });
+module.exports = mongoose.model("Booking", bookingSchema);
