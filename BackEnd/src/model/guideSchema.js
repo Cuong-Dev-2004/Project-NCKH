@@ -4,6 +4,7 @@ const guideSchema = new mongoose.Schema({
     fullName: String,
     email: { type: String, unique: true },
     password: String,
+    image: String,
     phone: String,
     languages: [String],
     location: String,

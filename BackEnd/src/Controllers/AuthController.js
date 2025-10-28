@@ -22,11 +22,11 @@ const AuthControler = {
     },
     registerGuide: async (req, res) => {
         try {
-            const { fullName, email, password, phone, languages, location, experience, pricePerHour } = req.body;
+            const { fullName, email, password, image, phone, languages, location, experience, pricePerHour } = req.body;
             const exist = await Guide.findOne({ email });
             if (exist) return res.status(400).json({ message: "Email đã tồn tại" });
             const hashedPassword = await bcrypt.hash(password, 10);
-            const guide = new Guide({ fullName, email, password: hashedPassword, phone, languages, location, experience, pricePerHour });
+            const guide = new Guide({ fullName, email, password: hashedPassword, image, phone, languages, location, experience, pricePerHour });
             await guide.save();
             res.status(201).json({ message: "Đăng ký thành công", user: guide });
         } catch (err) {
