@@ -1,0 +1,36 @@
+@import "tailwindcss";
+
+/* --- Reset root để về nền sáng, full width --- */
+:root {
+  color-scheme: light;     /* chỉ dùng light để khỏi bị nền đen tự động */
+  color: #111;             /* màu chữ mặc định */
+  background-color: #fff;  /* nền trắng toàn trang */
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* --- Quan trọng: đừng căn giữa body --- */
+html, body, #root {
+  width: 100%;
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  /* XÓA các dòng dưới nếu đang có */
+  /* display: flex; */
+  /* place-items: center; */
+  background: #fff;     /* hoặc để Tailwind lo */
+  color: #111;
+}
+
+/* Scrollbar ẩn như bạn đang dùng */
+::-webkit-scrollbar { display: none; }
+* { scrollbar-width: none; -ms-overflow-style: none; }
