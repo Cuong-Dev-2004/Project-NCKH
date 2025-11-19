@@ -1,12 +1,14 @@
-import { BrowserRouter } from "react-router-dom"
-import Router from "../src/Routers/Router.jsx"
+// src/App.jsx
+import { BrowserRouter } from "react-router-dom";
+import Router from "./Routers/Router.jsx";     // đúng CHỮ HOA thư mục Routers
+import { CartProvider } from "./utils/cartContext.jsx";
 
-function App() {
+export default function App() {
   return (
-    <BrowserRouter>
-      <Router />
-    </BrowserRouter>
-  )
+    <CartProvider>
+      <BrowserRouter>
+        <Router />
+      </BrowserRouter>
+    </CartProvider>
+  );
 }
-
-export default App

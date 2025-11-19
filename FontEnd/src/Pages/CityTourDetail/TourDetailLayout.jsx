@@ -2,14 +2,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useCart } from "../../utils/cartContext.jsx";
-import { vnd } from "../../utils/money";
+import { vnd } from "../../utils/money.js";
 
 const TABS = [
   { key: "desc", label: "MÔ TẢ" },
-  { key: "inc",  label: "BAO GỒM/LOẠI TRỪ" },
+  { key: "inc", label: "BAO GỒM/LOẠI TRỪ" },
   { key: "plan", label: "CHƯƠNG TRÌNH TOUR" },
-  { key: "kid",  label: "GIÁ VÉ TRẺ EM" },
-  { key: "rv",   label: "ĐÁNH GIÁ" },
+  { key: "kid", label: "GIÁ VÉ TRẺ EM" },
+  { key: "rv", label: "ĐÁNH GIÁ" },
 ];
 
 export default function TourDetailLayout() {
@@ -33,12 +33,12 @@ export default function TourDetailLayout() {
       images: (Array.isArray(s.images) && s.images.length
         ? s.images
         : [
-            "https://picsum.photos/id/1015/1200/800",
-            "https://picsum.photos/id/1016/1200/800",
-            "https://picsum.photos/id/1018/1200/800",
-            "https://picsum.photos/id/1019/1200/800",
-            "https://picsum.photos/id/1022/1200/800",
-          ]),
+          "https://picsum.photos/id/1015/1200/800",
+          "https://picsum.photos/id/1016/1200/800",
+          "https://picsum.photos/id/1018/1200/800",
+          "https://picsum.photos/id/1019/1200/800",
+          "https://picsum.photos/id/1022/1200/800",
+        ]),
       data1: Array.isArray(s.data1) ? s.data1 : [],
       include: s.include || [
         "Hướng dẫn viên địa phương",
@@ -165,9 +165,8 @@ export default function TourDetailLayout() {
                 <button
                   key={i}
                   onClick={() => setActive(i)}
-                  className={`group relative rounded-lg overflow-hidden ${
-                    active === i ? "ring-2 ring-sky-500" : ""
-                  }`}
+                  className={`group relative rounded-lg overflow-hidden ${active === i ? "ring-2 ring-sky-500" : ""
+                    }`}
                   aria-label={`thumb-${i}`}
                 >
                   <img
@@ -184,8 +183,8 @@ export default function TourDetailLayout() {
               <div className="grid sm:grid-cols-4 gap-6 p-5">
                 <Info title="Thời gian" value={`${props.duration} ngày`} />
                 <Info title="Số lượng" value={String(props.capacity)} />
-                <Info title="Độ tuổi"  value={props.minAge} />
-                <Info title="Đón tại"   value={props.pickup} />
+                <Info title="Độ tuổi" value={props.minAge} />
+                <Info title="Đón tại" value={props.pickup} />
               </div>
             </div>
 
@@ -197,11 +196,10 @@ export default function TourDetailLayout() {
                   <button
                     key={t.key}
                     onClick={() => setTab(t.key)}
-                    className={`px-4 py-2 text-sm font-semibold rounded-full transition ${
-                      tab === t.key
+                    className={`px-4 py-2 text-sm font-semibold rounded-full transition ${tab === t.key
                         ? "bg-rose-600 text-white shadow-sm"
                         : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                    }`}
+                      }`}
                   >
                     {t.label}
                   </button>
@@ -359,11 +357,10 @@ export default function TourDetailLayout() {
               <button
                 onClick={handleBook}
                 disabled={!date}
-                className={`w-full h-11 rounded-lg text-white text-sm font-semibold transition ${
-                  date
+                className={`w-full h-11 rounded-lg text-white text-sm font-semibold transition ${date
                     ? "bg-rose-600 hover:brightness-110 active:translate-y-px"
                     : "bg-gray-300 cursor-not-allowed"
-                }`}
+                  }`}
               >
                 Đặt ngay
               </button>
@@ -443,9 +440,8 @@ export default function TourDetailLayout() {
                 <button
                   key={i}
                   onClick={() => setActive(i)}
-                  className={`rounded-md overflow-hidden ${
-                    active === i ? "ring-2 ring-rose-500" : ""
-                  }`}
+                  className={`rounded-md overflow-hidden ${active === i ? "ring-2 ring-rose-500" : ""
+                    }`}
                 >
                   <img
                     src={src}

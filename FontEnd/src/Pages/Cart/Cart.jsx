@@ -3,8 +3,8 @@ import { useState, useMemo, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { vnd } from "../../utils/money.js";
 import { useCart } from "../../utils/cartContext.jsx";
-import SePayModal from "../../components/Payment/SePayModal";
-import { saveOrderAndBookings, genCode, countDaysInclusive } from "../../data/orderBooking.store";
+import SePayModal from "../../components/Payment/SePayModal.jsx";
+import { saveOrderAndBookings, genCode, countDaysInclusive } from "../../data/orderBooking.store.js";
 
 function Row({ label, value, highlight = false }) {
   return (
@@ -213,7 +213,7 @@ export default function Cart() {
           // 2) Chuyển từng item → booking (đồng bộ với trang admin)
           const bookings = items.map((it) => {
             const days = countDaysInclusive(it?.meta?.checkIn, it?.meta?.checkOut);
-            const qty  = Math.max(1, parseInt(it.qty, 10) || 1);
+            const qty = Math.max(1, parseInt(it.qty, 10) || 1);
             return {
               _id: crypto.randomUUID(),
               code: genCode("BK"),
@@ -223,7 +223,7 @@ export default function Cart() {
               phone: it?.meta?.phone || "",
               email: it?.meta?.email || "",
               people: it?.meta?.adults || qty,
-              checkinDate: it?.meta?.checkIn || new Date().toISOString().slice(0,10),
+              checkinDate: it?.meta?.checkIn || new Date().toISOString().slice(0, 10),
               days,
               note: note || it?.meta?.note || "",
               total: (Number(it.price) || 0) * qty * days,
