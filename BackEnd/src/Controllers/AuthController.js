@@ -1,59 +1,44 @@
 const bcrypt = require("bcrypt");
-const Tourist = require("../model/touristSchema");
-const Guide = require("../model/guideSchema");
 const jwt = require("jsonwebtoken");
+const User = require("../model/User/User")
 const AuthControler = {
-    registerTourist: async (req, res) => {
+    Login: async (req, res) => {
         try {
-            const { fullName, email, password, phone, nationality } = req.body
-
-            const exist = await Tourist.findOne({ email });
-            if (exist) {
-                return res.status(400).json({ message: "Email Đã Tồn Tại" })
+            const { username, password } = req.body;
+            const user = await User.findOne({ username });
+            if (!user) {
+                return res.status(500).json({ message: "Nguoi Dung Khong Ton Tai" });
             }
-            const hashedPassword = bcrypt.hashSync(password, 10);
-            const tourist = new Tourist({ fullName, email, password: hashedPassword, phone, nationality });
-            await tourist.save();
-            res.status(201).json({ message: "Đăng ký thành công", user: tourist });
-
-        } catch (error) {
-            res.status(500).json({ error: error.message });
-        }
-    },
-    registerGuide: async (req, res) => {
-        try {
-            const { fullName, email, password, image, phone, languages, location, experience, pricePerHour } = req.body;
-            const exist = await Guide.findOne({ email });
-            if (exist) return res.status(400).json({ message: "Email đã tồn tại" });
-            const hashedPassword = await bcrypt.hash(password, 10);
-            const guide = new Guide({ fullName, email, password: hashedPassword, image, phone, languages, location, experience, pricePerHour });
-            await guide.save();
-            res.status(201).json({ message: "Đăng ký thành công", user: guide });
-        } catch (err) {
-            res.status(500).json({ error: err.message });
-        }
-    },
-
-    login: async (req, res) => {
-        try {
-            const { email, password, role } = req.body;
-            const Model = role === "tourist" ? Tourist : Guide;
-            const user = await Model.findOne({ email });
-            if (!user) return res.status(400).json({ message: "Sai email hoặc mật khẩu" });
-
             const isMatch = await bcrypt.compare(password, user.password);
-            if (!isMatch) return res.status(400).json({ message: "Sai email hoặc mật khẩu" });
-
+            if (!isMatch) {
+                return res.status(401).json({ message: "Sai mật khẩu" });
+            }
             const token = jwt.sign(
-                { id: user._id, role: role }, // Dữ liệu muốn lưu vào token
-                'YOUR_SECRET_KEY',             // Một chuỗi bí mật, không được để lộ
-                { expiresIn: '1h' }            // Thời gian token hết hạn
+                { userId: user._id, role: user.role },
+                process.env.JWT_SECRET || "secretKey",
+                { expiresIn: "1h" }
             );
-
-            res.json({ message: "Đăng nhập thành công", token });
-
-        } catch (err) {
-            res.status(500).json({ error: err.message });
+            res.status(200).json({
+                message: "Đăng nhập thành công",
+                user: {
+                    id: user._id,
+                    username: user.username,
+                    role: user.role,
+                    email: user.email
+                },
+                token
+            });
+        } catch (error) {
+            return res.status(500).json({ message: error });
+        }
+    },
+    Logout: async (req, res) => {
+        try {
+            const token = req.headers.authorization.split(" ")[1];
+            const decoded = jwt.decode(token);
+            res.status(200).json({ message: "Đăng xuất thành công" });
+        } catch (error) {
+            res.status(500).json({ message: error.message });
         }
     }
 }

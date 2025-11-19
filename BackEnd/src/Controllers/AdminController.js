@@ -1,66 +1,159 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 
-const Admin = require("../model/AdminSchema");
-const { model } = require("mongoose");
+const User = require("../model/User/User");
+const AdminProfile = require("../model/User/AdminProfile");
+const Partner = require("../model/User/partner");
+const bookingSchema = require("../model/booking/bookingSchema");
+
+// Them Xoa Sua
 const AdminController = {
-    createAdmin: async (req, res) => {
+    // Quan ly Phan Quyen Nguoi Dung
+    // Create Admin or Phan Quyen 
+    createAdminProfile: async (req, res) => {
         try {
-            const { email, password } = req.body;
-            const exist = await Admin.findOne({ email });
-            if (exist) return res.status(400).json({ message: "Email đã tồn tại" });
-            const hashedPassword = await bcrypt.hash(password, 10);
-            const admin = new Admin({ email, password: hashedPassword });
-            await admin.save();
-            res.status(201).json({ message: "Admin created", admin });
+            const { email, username, password, role = "admin", fullName, phone, avatar } = req.body;
+            const hashpass = bcrypt.hashSync(password, 10);
+
+            const user = new User({ email, username, password: hashpass, role });
+            await user.save();
+
+            const adminProfile = new AdminProfile({
+                userId: user._id,
+                fullName: fullName || "",
+                phone: phone || "",
+                avatar: avatar || "",
+            });
+            await adminProfile.save();
+
+            res.status(201).json({ message: `${role} tạo thành công`, adminProfile });
         } catch (error) {
             res.status(500).json({ error: error.message });
         }
     },
-    UpdateAdmin: async (req, res) => {
-        try {
-            const { email, password } = req.body;
-            const admin = await Admin.findOne({ email });
-            if (!admin) return res.status(400).json({ message: "Admin không tồn tại" });
-            const hashedPassword = await bcrypt.hash(password, 10);
-            admin.password = hashedPassword;
-            await admin.save();
-            res.status(200).json({ message: "Admin updated", admin });
-        } catch (error) {
-            res.status(500).json({ error: error.message });
-        }
-    },
-    DeleteAdmin: async (req, res) => {
+    deleteAdminProfile: async (req, res) => {
         try {
             const { email } = req.body;
-            const admin = await Admin.findOne({ email });
-            if (!admin) return res.status(400).json({ message: "Admin không tồn tại" });
-            await admin.deleteOne();
-            res.status(200).json({ message: "Admin deleted" });
+
+            const user = await User.findOne({ email });
+            if (!user) {
+                return res.status(404).json({ message: "Không có email này" });
+            }
+
+            await AdminProfile.findOneAndDelete({ userId: user._id });
+            await User.findByIdAndDelete(user._id);
+
+            res.status(200).json({ message: "Xóa Admin và profile Admin thành công" });
         } catch (error) {
             res.status(500).json({ error: error.message });
         }
     },
-    GetAdmin: async (req, res) => {
+    // Quan Ly Doi Tac  
+    // * tao Doi Tac 
+    CreateDoiTac: async (req, res) => {
         try {
-            const admin = await Admin.find();
-            res.status(200).json({ admin });
+            const { email,
+                username,
+                password,
+                role = "partner",
+                fullName,
+                phone,
+                avatar,
+                HopDong } = req.body;
+            const user = new User({
+                email,
+                username,
+                password,
+                role
+            });
+            await user.save();
+
+            const partner = new Partner({
+                userId: user.id,
+                fullName,
+                phone,
+                avatar,
+                HopDong
+            });
+            await partner.save();
+            res.status(201).json({ message: `Phan Quyen ${role} tạo thành công`, partner });
+
+
         } catch (error) {
             res.status(500).json({ error: error.message });
         }
     },
-    LoginAdmin: async (req, res) => {
+    // * Xoa Doi Tac 
+    RemovePartner: async (req, res) => {
         try {
-            const { email, password } = req.body;
-            const admin = await Admin.findOne({ email });
-            if (!admin) return res.status(400).json({ message: "Admin không tồn tại" });
-            const isMatch = await bcrypt.compare(password, admin.password);
-            if (!isMatch) return res.status(400).json({ message: "Mật khẩu không đúng" });
-            const token = jwt.sign({ id: admin._id }, process.env.JWT_SECRET, { expiresIn: "1h" });
-            res.status(200).json({ message: "Admin đăng nhập thành công", token });
+            const { email } = req.body;
+            const user = User.findOne({ email });
+            if (!user) {
+                return res.status(404).json({ message: "Khong Co Doi Tac" });
+            }
+            await Partner.findOneAndDelete({ userId: user._id });
+            await user.findByIdAndDelete(user._id);
+            res.status(200).json({ message: "Xoa Doi Tac Thanh Cong" });
         } catch (error) {
             res.status(500).json({ error: error.message });
         }
-    }
+    },
+    // * Chinh sUA Doi Tac
+    UpDatePartner: async (req, res) => {
+        try {
+            const { email,
+                username,
+                password,
+                fullName,
+                phone,
+                avatar,
+                HopDong } = req.body;
+            const user = User.findOne({ email });
+            if (!user) {
+                res.status(500).json({ message: "Khong Co User" });
+            }
+            await user.replaceOne({
+                username,
+                password
+            })
+            await user.save();
+            await parent.replaceOne({
+                fullName,
+                phone,
+                avatar,
+                HopDong
+            })
+            await parent.save();
+            res.status(200).json({ message: "Update Thanh Cong" });
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    },
+    // LAY tAT cA dOI tAC
+    getAllPartner: async (req, res) => {
+        try {
+            const parent = await Partner.find();
+            res.status(200).json({ message: "Get Pass ", parent });
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    },
+    // QUAN lY Cac Dich Vu 
+    GetAllBoking: async (req, res) => {
+        try {
+            const booking = await bookingSchema.find();
+            res.status(500).json({ message: "Tat ca Boking ", booking })
+        } catch (error) {
+            res.status(500).json({ message: error });
+        }
+    },
+
+
+
+
+
+
+
+
 }
 module.exports = AdminController;

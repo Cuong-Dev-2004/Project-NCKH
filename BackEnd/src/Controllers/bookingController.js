@@ -1,4 +1,4 @@
-const Booking = require("../model/bookingSchema");
+const Booking = require("../model/booking/bookingSchema");
 
 
 
