@@ -1,129 +1,66 @@
 import { useEffect, useMemo, useState } from "react";
 import DetailPresets from "../../data/Data";
+import { 
+  Search, 
+  Filter, 
+  MoreVertical, 
+  Edit3, 
+  Trash2, 
+  X, 
+  CheckCircle, 
+  Clock, 
+  User, 
+  MapPin, 
+  Phone, 
+  Mail, 
+  Calendar, 
+  FileText, 
+  CreditCard,
+  AlertCircle,
+  ArrowRight
+} from "lucide-react";
 
 const LS_KEY = "bookings_admin_demo_v1";
-const STATUS = ["pending", "confirmed", "completed", "cancelled"];
-const STATUS_LABEL = {
-  pending: "Chờ xử lý",
-  confirmed: "Đã xác nhận",
-  completed: "Hoàn thành",
-  cancelled: "Đã hủy",
+const STATUS_CONFIG = {
+  pending: { label: "Chờ xử lý", color: "bg-amber-50 text-amber-700 border-amber-100", icon: Clock },
+  confirmed: { label: "Đã xác nhận", color: "bg-blue-50 text-blue-700 border-blue-100", icon: CheckCircle },
+  completed: { label: "Hoàn thành", color: "bg-emerald-50 text-emerald-700 border-emerald-100", icon: CheckCircle },
+  cancelled: { label: "Đã hủy", color: "bg-rose-50 text-rose-700 border-rose-100", icon: X },
 };
+
 const vnd = (n) => (Number(n || 0)).toLocaleString("vi-VN") + "đ";
 
-// ===== Map TOUR theo id (từ DetailPresets) =====
+// Map TOUR để tra cứu nhanh giá tiền khi sửa
 const TOURS = Object.values(DetailPresets).reduce((acc, t) => {
   acc[Number(t.id)] = { id: Number(t.id), name: t.name, price: Number(t.price) };
   return acc;
 }, {});
 
-/* ---------------- Toast nhỏ gọn ---------------- */
-function Toast({ open, type = "info", message = "", onClose }) {
-  if (!open) return null;
-  const map = {
-    success: { cls: "bg-emerald-600", label: "Thành công" },
-    warn: { cls: "bg-amber-500", label: "Cảnh báo" },
-    info: { cls: "bg-sky-600", label: "Thông báo" },
-  };
-  const { cls, label } = map[type] || map.info;
-
-  return (
-    <div className="fixed top-4 right-4 z-[60]">
-      <div className="text-white shadow-2xl rounded-2xl overflow-hidden ring-1 ring-black/10">
-        <div className={`${cls} px-4 py-2 font-semibold`}>{label}</div>
-        <div className="px-4 py-3 bg-white text-gray-800 min-w-[260px]">
-          <div className="text-sm">{message}</div>
-          <div className="mt-3 flex justify-end">
-            <button
-              onClick={onClose}
-              className="px-3 py-1.5 rounded-lg text-sm bg-gray-100 hover:bg-gray-200"
-            >
-              Đóng
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ---------------- COMPACT ROW ---------------- */
-function Row({ b, active, onSelect }) {
-  return (
-    <tr
-      onClick={() => onSelect(b)}
-      className={`cursor-pointer hover:bg-sky-50/60 ${
-        active ? "bg-sky-50/80" : ""
-      }`}
-    >
-      <td className="p-3 font-mono text-xs">{b.code}</td>
-      <td className="p-3">
-        <div className="font-semibold">{b.tourName}</div>
-        <div className="text-gray-500">#{b.tourId}</div>
-      </td>
-      <td className="p-3">
-        <div className="font-medium">{b.customerName}</div>
-        <div className="text-gray-500 text-xs">
-          {b.phone}
-          {b.email ? ` · ${b.email}` : ""}
-        </div>
-      </td>
-      <td className="p-3">
-        {b.checkinDate} ({b.days} ngày)
-        <div className="text-gray-500 text-xs">{b.people} khách</div>
-      </td>
-      <td className="p-3 text-right font-semibold text-indigo-700">
-        {vnd(b.total)}
-      </td>
-      <td className="p-3">
-        <span
-          className={`px-2 py-1 rounded-full text-xs shadow ${
-            b.status === "pending"
-              ? "bg-amber-100 text-amber-700"
-              : b.status === "confirmed"
-              ? "bg-sky-100 text-sky-700"
-              : b.status === "completed"
-              ? "bg-emerald-100 text-emerald-700"
-              : "bg-rose-100 text-rose-700"
-          }`}
-        >
-          {STATUS_LABEL[b.status] || b.status}
-        </span>
-      </td>
-    </tr>
-  );
-}
-
 export default function BookingListPage() {
   const [data, setData] = useState([]);
   const [q, setQ] = useState("");
   const [editing, setEditing] = useState(null);
-  const [selected, setSelected] = useState(null); // đơn đang chọn
-  const [toast, setToast] = useState({
-    open: false,
-    type: "info",
-    message: "",
-  });
+  const [selected, setSelected] = useState(null);
+  const [toast, setToast] = useState({ open: false, type: "info", message: "" });
 
+  // --- LOGIC (Giữ nguyên logic cũ) ---
   const notify = (type, message) => {
     setToast({ open: true, type, message });
-    setTimeout(() => setToast((t) => ({ ...t, open: false })), 2200);
+    setTimeout(() => setToast((t) => ({ ...t, open: false })), 3000);
   };
 
   const reload = () => {
     const raw = localStorage.getItem(LS_KEY);
     const arr = raw ? JSON.parse(raw) : [];
     setData(arr);
+    // Cập nhật lại selected item nếu dữ liệu thay đổi
     if (selected) {
       const found = arr.find((x) => x._id === selected._id);
       setSelected(found || null);
     }
   };
 
-  useEffect(() => {
-    reload();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  useEffect(() => { reload(); }, []);
 
   const filtered = useMemo(() => {
     if (!q) return data;
@@ -137,12 +74,6 @@ export default function BookingListPage() {
     );
   }, [data, q]);
 
-  const total = useMemo(
-    () => filtered.reduce((s, x) => s + (x.total || 0), 0),
-    [filtered]
-  );
-
-  // ---------- local helpers ----------
   const saveAll = (arr) => {
     localStorage.setItem(LS_KEY, JSON.stringify(arr));
     setData(arr);
@@ -158,35 +89,25 @@ export default function BookingListPage() {
     }
   };
 
-  // ---------- actions ----------
   const changeStatus = (b, s) => {
     updateOne(b._id, { status: s });
-    notify(
-      "info",
-      `Đã đổi trạng thái "${b.code}" ➜ ${STATUS_LABEL[s] || s}.`
-    );
+    notify("info", `Đã đổi trạng thái sang: ${STATUS_CONFIG[s].label}`);
   };
 
   const remove = (b) => {
-    if (!confirm(`Xoá booking ${b.code}?`)) return;
+    if (!window.confirm(`Xoá booking ${b.code}? Hành động này không thể hoàn tác.`)) return;
     const arr = data.filter((x) => x._id !== b._id);
     saveAll(arr);
     if (selected && selected._id === b._id) setSelected(null);
-    notify("warn", "Đã xoá đơn.");
+    notify("warn", "Đã xoá đơn hàng thành công.");
   };
 
   const openEdit = (b) => {
     const tourInfo = TOURS[b.tourId] || { price: 0, name: b.tourName };
     setEditing({
       ...b,
-      tourPrice: tourInfo.price,
-      tourName: tourInfo.name || b.tourName,
+      tourPrice: tourInfo.price, // Lưu giá gốc để tính lại tổng tiền
     });
-  };
-
-  const calcTotal = (tourId, people, days) => {
-    const price = TOURS[tourId]?.price || 0;
-    return Number(price) * Number(people) * Number(days);
   };
 
   const saveEdit = () => {
@@ -199,366 +120,354 @@ export default function BookingListPage() {
       days: Number(editing.days),
       people: Number(editing.people),
       note: editing.note,
-      total: calcTotal(editing.tourId, editing.people, editing.days),
+      total: (editing.tourPrice || 0) * Number(editing.people) * Number(editing.days), // Tính lại tổng
       status: editing.status,
     };
     updateOne(editing._id, patch);
     setEditing(null);
-    notify("success", "Đã lưu thay đổi.");
+    notify("success", "Cập nhật thông tin thành công.");
+  };
+
+  // Component Avatar nhỏ
+  const Avatar = ({ name }) => (
+    <div className="w-9 h-9 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-sm font-bold shrink-0">
+      {name ? name.charAt(0).toUpperCase() : "K"}
+    </div>
+  );
+
+  // Component Badge Trạng thái
+  const StatusBadge = ({ status }) => {
+    const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
+    const Icon = cfg.icon;
+    return (
+      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${cfg.color}`}>
+        <Icon size={12} />
+        {cfg.label}
+      </span>
+    );
   };
 
   return (
-    <>
-      {/* Lưới 2 cột: trái = bảng; phải = panel chi tiết */}
-      <div className="grid grid-cols-1 lg:grid-cols-[3fr,2fr] gap-8 items-start">
-        {/* LEFT: bảng */}
-        <section className="space-y-4">
-          <div className="flex items-end gap-3">
-            <div className="flex-1">
-              <label className="text-sm font-medium">Tìm kiếm</label>
+    <div className="p-6 bg-slate-50 min-h-screen">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr,380px] gap-6 items-start max-w-[1600px] mx-auto">
+        
+        {/* --- CỘT TRÁI: DANH SÁCH --- */}
+        <div className="space-y-4">
+          {/* Header & Search */}
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-4 bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+            <div className="relative w-full sm:w-96">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                <Search size={18} />
+              </div>
               <input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                placeholder="Mã đơn, tên tour, khách, sđt..."
-                className="w-full rounded-xl px-3 py-2 bg-gray-50 focus:bg-white shadow-inner focus:outline-none focus:ring-2 focus:ring-sky-200"
+                placeholder="Tìm theo mã, tên khách, SĐT..."
+                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
               />
             </div>
-            <div className="text-sm whitespace-nowrap">
-              Tổng đơn: <b>{filtered.length}</b> · Doanh thu:{" "}
-              <b className="text-indigo-700">{vnd(total)}</b>
+            <div className="text-sm text-slate-500 flex gap-4">
+              <span><b>{filtered.length}</b> Tour</span>
             </div>
           </div>
 
-          <div className="rounded-2xl overflow-hidden bg-white shadow-2xl ring-1 ring-black/5">
-            <table className="w-full text-sm">
-              <thead className="bg-gradient-to-r from-sky-100 to-indigo-100">
-                <tr className="text-left text-gray-700">
-                  <th className="p-3">Mã</th>
-                  <th className="p-3">Tour</th>
-                  <th className="p-3">Khách</th>
-                  <th className="p-3">Ngày</th>
-                  <th className="p-3 text-right">Tổng</th>
-                  <th className="p-3">Trạng thái</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.length === 0 ? (
+          {/* Table Card */}
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden min-h-[600px]">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-slate-50 text-slate-600 font-medium border-b border-slate-200">
                   <tr>
-                    <td className="p-6 text-center" colSpan={6}>
-                      Chưa có đơn phù hợp
-                    </td>
+                    <th className="p-4">Khách hàng</th>
+                    <th className="p-4">Tour & Thời gian</th>
+                    <th className="p-4 text-right">Tổng tiền</th>
+                    <th className="p-4 text-center">Trạng thái</th>
+                    <th className="p-4 w-10"></th>
                   </tr>
-                ) : (
-                  filtered.map((b) => (
-                    <Row
-                      key={b._id}
-                      b={b}
-                      active={selected?._id === b._id}
-                      onSelect={setSelected}
-                    />
-                  ))
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filtered.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="p-10 text-center text-slate-400">
+                        <div className="flex flex-col items-center gap-2">
+                          <Search size={32} className="opacity-20" />
+                          <p>Không tìm thấy tour nao</p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    filtered.map((b) => (
+                      <tr
+                        key={b._id}
+                        onClick={() => setSelected(b)}
+                        className={`group cursor-pointer transition-colors ${
+                          selected?._id === b._id ? "bg-indigo-50/60" : "hover:bg-slate-50"
+                        }`}
+                      >
+                        <td className="p-4">
+                          <div className="flex items-center gap-3">
+                            <Avatar name={b.customerName} />
+                            <div>
+                              <div className="font-semibold text-slate-800">{b.customerName}</div>
+                              <div className="text-xs text-slate-500 font-mono">{b.code}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-4">
+                          <div className="font-medium text-slate-700 mb-0.5">{b.tourName}</div>
+                          <div className="flex items-center gap-2 text-xs text-slate-500">
+                            <Calendar size={12} /> {b.checkinDate}
+                            <span>•</span>
+                            <Clock size={12} /> {b.days} ngày
+                          </div>
+                        </td>
+                        <td className="p-4 text-right font-bold text-indigo-600">
+                          {vnd(b.total)}
+                        </td>
+                        <td className="p-4 text-center">
+                          <StatusBadge status={b.status} />
+                        </td>
+                        <td className="p-4 text-slate-400">
+                          <ArrowRight size={16} className={`transition-transform ${selected?._id === b._id ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-2 group-hover:opacity-50'}`} />
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </section>
+        </div>
 
-        {/* RIGHT: panel chi tiết hoá đơn + thao tác */}
-        <aside className="space-y-4">
-          <div className="rounded-2xl p-6 lg:p-7 shadow-2xl ring-1 ring-black/5 bg-white/95 min-h-[260px]">
-            {!selected ? (
-              <div className="h-full flex items-center justify-center">
-                <p className="text-sm text-gray-600 text-center max-w-xs">
-                  Hãy chọn một đơn ở bảng bên trái để xem chi tiết hóa đơn và
-                  thao tác nhanh.
-                </p>
+        {/* --- CỘT PHẢI: CHI TIẾT (STICKY) --- */}
+        <div className="sticky top-6">
+          {selected ? (
+            <div className="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden">
+              {/* Header Panel */}
+              <div className="p-6 bg-gradient-to-br from-indigo-600 to-blue-700 text-white">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-indigo-100 text-xs uppercase font-bold tracking-wider mb-1">Chi tiết tour của khách hàng </p>
+                    <h2 className="text-2xl font-bold">{selected.code}</h2>
+                  </div>
+                  <div className="p-2 bg-white/10 rounded-lg backdrop-blur-sm cursor-pointer hover:bg-white/20 transition-colors" onClick={() => setSelected(null)}>
+                    <X size={18} />
+                  </div>
+                </div>
+                <div className="mt-6 flex items-center gap-3">
+                   <div className="px-3 py-1 rounded-lg bg-white/20 backdrop-blur text-sm font-medium flex items-center gap-2">
+                      {STATUS_CONFIG[selected.status]?.label}
+                   </div>
+                   <span className="text-xs text-indigo-200">{selected.createdAt?.slice(0,10)}</span>
+                </div>
               </div>
-            ) : (
-              <>
-                {/* Tiêu đề + mã đơn */}
-                <h3 className="text-xl font-semibold mb-1">
-                  Hóa đơn đặt tour
-                </h3>
-                <p className="text-sm text-gray-600 mb-4">
-                  Mã hóa đơn:{" "}
-                  <span className="font-mono font-semibold text-gray-900">
-                    {selected.code}
-                  </span>
-                </p>
 
-                {/* Thông tin tour */}
-                <div className="border rounded-xl p-3 mb-4">
-                  <h4 className="font-semibold mb-2 text-sm">Thông tin tour</h4>
-                  <p className="text-sm">
-                    <span className="font-medium">Tour:&nbsp;</span>
-                    {selected.tourName}
-                  </p>
-                  <p className="text-sm">
-                    <span className="font-medium">Ngày khởi hành:&nbsp;</span>
-                    {selected.checkinDate}
-                  </p>
-                  <p className="text-sm">
-                    <span className="font-medium">Thời lượng:&nbsp;</span>
-                    {selected.days} ngày
-                  </p>
-                  <p className="text-sm">
-                    <span className="font-medium">Số khách:&nbsp;</span>
-                    {selected.people} khách
-                  </p>
-                  <p className="mt-2 text-sm">
-                    <span className="font-medium">Tổng tiền:&nbsp;</span>
-                    <span className="font-semibold text-indigo-700">
-                      {vnd(selected.total)}
-                    </span>
-                  </p>
-                </div>
-
-                {/* Thông tin khách hàng */}
-                <div className="border rounded-xl p-3 mb-4">
-                  <h4 className="font-semibold mb-2 text-sm">
-                    Thông tin khách hàng
+              {/* Body Content */}
+              <div className="p-6 space-y-6">
+                
+                {/* Thông tin khách */}
+                <div>
+                  <h4 className="text-xs font-bold text-slate-400 uppercase mb-3 flex items-center gap-2">
+                    <User size={14} /> Khách hàng
                   </h4>
-                  <p className="text-sm">
-                    <span className="font-medium">Họ tên:&nbsp;</span>
-                    {selected.customerName}
-                  </p>
-                  <p className="text-sm">
-                    <span className="font-medium">SĐT:&nbsp;</span>
-                    {selected.phone}
-                  </p>
-                  {selected.email && (
-                    <p className="text-sm">
-                      <span className="font-medium">Email:&nbsp;</span>
-                      {selected.email}
-                    </p>
-                  )}
-                  {selected.note && (
-                    <p className="text-sm mt-1">
-                      <span className="font-medium">Ghi chú:&nbsp;</span>
-                      <span className="italic">{selected.note}</span>
-                    </p>
-                  )}
-                </div>
-
-                {/* Trạng thái đơn + nút đổi trạng thái */}
-                <div className="border rounded-xl p-3 mb-4">
-                  <h4 className="font-semibold mb-2 text-sm">Trạng thái đơn</h4>
-                  <p className="text-sm mb-2">
-                    Trạng thái hiện tại:&nbsp;
-                    <span
-                      className={
-                        "px-3 py-1 rounded-full text-xs font-medium shadow " +
-                        (selected.status === "pending"
-                          ? "bg-amber-100 text-amber-700"
-                          : selected.status === "confirmed"
-                          ? "bg-sky-100 text-sky-700"
-                          : selected.status === "completed"
-                          ? "bg-emerald-100 text-emerald-700"
-                          : "bg-rose-100 text-rose-700")
-                      }
-                    >
-                      {STATUS_LABEL[selected.status] || selected.status}
-                    </span>
-                  </p>
-
-                  <div className="flex flex-wrap gap-2 mt-1">
-                    <button
-                      onClick={() => changeStatus(selected, "pending")}
-                      className="px-3 py-1.5 rounded-lg text-xs bg-amber-50 hover:bg-amber-100"
-                    >
-                      Chờ xử lý
-                    </button>
-                    <button
-                      onClick={() => changeStatus(selected, "confirmed")}
-                      className="px-3 py-1.5 rounded-lg text-xs bg-sky-50 hover:bg-sky-100"
-                    >
-                      Đã xác nhận
-                    </button>
-                    <button
-                      onClick={() => changeStatus(selected, "completed")}
-                      className="px-3 py-1.5 rounded-lg text-xs bg-emerald-50 hover:bg-emerald-100"
-                    >
-                      Hoàn thành
-                    </button>
-                    <button
-                      onClick={() => changeStatus(selected, "cancelled")}
-                      className="px-3 py-1.5 rounded-lg text-xs bg-rose-50 hover:bg-rose-100"
-                    >
-                      Hủy đơn
-                    </button>
+                  <div className="bg-slate-50 p-4 rounded-xl space-y-3 border border-slate-100">
+                    <div className="font-semibold text-slate-800 text-lg">{selected.customerName}</div>
+                    <div className="flex items-center gap-2 text-sm text-slate-600">
+                      <Phone size={14} className="text-slate-400" /> {selected.phone || "Không có SĐT"}
+                    </div>
+                    {selected.email && (
+                      <div className="flex items-center gap-2 text-sm text-slate-600">
+                        <Mail size={14} className="text-slate-400" /> {selected.email}
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                {/* Hành động khác */}
-                <div className="grid grid-cols-2 gap-2 mt-1">
-                  <button
+                {/* Thông tin Tour */}
+                <div>
+                  <h4 className="text-xs font-bold text-slate-400 uppercase mb-3 flex items-center gap-2">
+                    <MapPin size={14} /> Dịch vụ Tour
+                  </h4>
+                  <div className="space-y-3 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Tour:</span>
+                      <span className="font-medium text-slate-800 text-right w-2/3">{selected.tourName}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Ngày đi:</span>
+                      <span className="font-medium text-slate-800">{selected.checkinDate}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Thời lượng:</span>
+                      <span className="font-medium text-slate-800">{selected.days} ngày</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Số khách:</span>
+                      <span className="font-medium text-slate-800">{selected.people} người</span>
+                    </div>
+                    {selected.note && (
+                       <div className="pt-2 border-t border-slate-100 mt-2">
+                          <span className="text-slate-500 block mb-1 text-xs">Ghi chú:</span>
+                          <p className="text-slate-700 italic bg-amber-50 p-2 rounded border border-amber-100">{selected.note}</p>
+                       </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Tổng tiền */}
+                <div className="pt-4 border-t border-dashed border-slate-200">
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-slate-700">Tổng thanh toán</span>
+                    <span className="text-xl font-bold text-indigo-600">{vnd(selected.total)}</span>
+                  </div>
+                </div>
+
+                {/* Actions Buttons */}
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  <button 
                     onClick={() => openEdit(selected)}
-                    className="px-3 py-2 rounded-lg text-sm bg-indigo-50 hover:bg-indigo-100"
+                    className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 font-medium rounded-xl hover:bg-slate-50 hover:border-slate-300 transition-all"
                   >
-                    Sửa thông tin
+                    <Edit3 size={16} /> Sửa
                   </button>
-                  <button
+                  <button 
                     onClick={() => remove(selected)}
-                    className="px-3 py-2 rounded-lg text-sm text-rose-700 bg-rose-50 hover:bg-rose-100"
+                    className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-rose-100 text-rose-600 font-medium rounded-xl hover:bg-rose-50 hover:border-rose-200 transition-all"
                   >
-                    Xoá đơn
+                    <Trash2 size={16} /> Xóa
                   </button>
                 </div>
-              </>
-            )}
-          </div>
-        </aside>
+                
+                {/* Status Actions */}
+                <div className="space-y-2 pt-2">
+                   <p className="text-xs text-center text-slate-400">Cập nhật trạng thái tour</p>
+                   <div className="flex justify-center gap-2">
+                      {Object.keys(STATUS_CONFIG).map(status => (
+                        <button
+                          key={status}
+                          onClick={() => changeStatus(selected, status)}
+                          className={`w-8 h-8 rounded-full flex items-center justify-center transition-transform hover:scale-110 ${
+                             selected.status === status ? 'ring-2 ring-offset-2 ring-indigo-500' : 'opacity-50 hover:opacity-100'
+                          } ${STATUS_CONFIG[status].color}`}
+                          title={STATUS_CONFIG[status].label}
+                        >
+                          {(() => {
+                             const I = STATUS_CONFIG[status].icon;
+                             return <I size={14} />;
+                          })()}
+                        </button>
+                      ))}
+                   </div>
+                </div>
+
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-10 text-center min-h-[400px] flex flex-col items-center justify-center">
+              <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-4 text-slate-300">
+                 <FileText size={40} />
+              </div>
+              <h3 className="text-lg font-medium text-slate-700">Chưa chọn tour</h3>
+              <p className="text-slate-500 text-sm mt-2 max-w-[200px]">
+                Chọn một đơn hàng từ danh sách bên trái để xem chi tiết và thao tác.
+              </p>
+            </div>
+          )}
+        </div>
+
       </div>
 
-      {/* Modal Sửa */}
+      {/* --- MODAL EDIT (Style mới) --- */}
       {editing && (
-        <div
-          className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-4"
-          onClick={() => setEditing(null)}
-        >
-          <div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between p-4 bg-gradient-to-r from-sky-600 to-indigo-700 text-white rounded-t-2xl">
-              <h3 className="text-lg font-semibold">Sửa đơn: {editing.code}</h3>
-              <button
-                onClick={() => setEditing(null)}
-                className="p-2 hover:opacity-80"
-              >
-                ✕
-              </button>
+        <div className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setEditing(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <h3 className="font-bold text-lg text-slate-700">Cập nhật đơn hàng</h3>
+              <button onClick={() => setEditing(null)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
             </div>
+            
+            <div className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-500 uppercase">Tên khách</label>
+                  <input 
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                    value={editing.customerName} 
+                    onChange={e => setEditing({...editing, customerName: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-500 uppercase">Số điện thoại</label>
+                  <input 
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                    value={editing.phone} 
+                    onChange={e => setEditing({...editing, phone: e.target.value})}
+                  />
+                </div>
+              </div>
 
-            <div className="p-4 grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium">Tên khách</label>
-                <input
-                  className="w-full rounded-xl px-3 py-2 bg-gray-50 focus:bg-white shadow-inner focus:outline-none focus:ring-2 focus:ring-sky-200"
-                  value={editing.customerName}
-                  onChange={(e) =>
-                    setEditing({ ...editing, customerName: e.target.value })
-                  }
-                />
+              <div className="space-y-1">
+                 <label className="text-xs font-bold text-slate-500 uppercase">Email</label>
+                 <input 
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                    value={editing.email} 
+                    onChange={e => setEditing({...editing, email: e.target.value})}
+                  />
               </div>
-              <div>
-                <label className="text-sm font-medium">SĐT</label>
-                <input
-                  className="w-full rounded-xl px-3 py-2 bg-gray-50 focus:bg-white shadow-inner focus:outline-none focus:ring-2 focus:ring-sky-200"
-                  value={editing.phone}
-                  onChange={(e) =>
-                    setEditing({ ...editing, phone: e.target.value })
-                  }
-                />
+
+              <div className="grid grid-cols-3 gap-4">
+                 <div className="col-span-1 space-y-1">
+                    <label className="text-xs font-bold text-slate-500 uppercase">Ngày đi</label>
+                    <input type="date"
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                      value={editing.checkinDate} 
+                      onChange={e => setEditing({...editing, checkinDate: e.target.value})}
+                    />
+                 </div>
+                 <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-500 uppercase">Số ngày</label>
+                    <input type="number" min={1}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                      value={editing.days} 
+                      onChange={e => setEditing({...editing, days: e.target.value})}
+                    />
+                 </div>
+                 <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-500 uppercase">Số khách</label>
+                    <input type="number" min={1}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                      value={editing.people} 
+                      onChange={e => setEditing({...editing, people: e.target.value})}
+                    />
+                 </div>
               </div>
-              <div>
-                <label className="text-sm font-medium">Email</label>
-                <input
-                  className="w-full rounded-xl px-3 py-2 bg-gray-50 focus:bg-white shadow-inner focus:outline-none focus:ring-2 focus:ring-sky-200"
-                  value={editing.email || ""}
-                  onChange={(e) =>
-                    setEditing({ ...editing, email: e.target.value })
-                  }
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Ngày check-in</label>
-                <input
-                  type="date"
-                  className="w-full rounded-xl px-3 py-2 bg-gray-50 focus:bg-white shadow-inner focus:outline-none focus:ring-2 focus:ring-sky-200"
-                  value={editing.checkinDate}
-                  onChange={(e) =>
-                    setEditing({ ...editing, checkinDate: e.target.value })
-                  }
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Số ngày</label>
-                <input
-                  type="number"
-                  min={1}
-                  className="w-full rounded-xl px-3 py-2 bg-gray-50 focus:bg-white shadow-inner focus:outline-none focus:ring-2 focus:ring-sky-200"
-                  value={editing.days}
-                  onChange={(e) => {
-                    const days = Number(e.target.value);
-                    setEditing((old) => ({
-                      ...old,
-                      days,
-                      total:
-                        (TOURS[old.tourId]?.price || 0) * old.people * days,
-                    }));
-                  }}
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Số khách</label>
-                <input
-                  type="number"
-                  min={1}
-                  className="w-full rounded-xl px-3 py-2 bg-gray-50 focus:bg-white shadow-inner focus:outline-none focus:ring-2 focus:ring-sky-200"
-                  value={editing.people}
-                  onChange={(e) => {
-                    const people = Number(e.target.value);
-                    setEditing((old) => ({
-                      ...old,
-                      people,
-                      total:
-                        (TOURS[old.tourId]?.price || 0) * people * old.days,
-                    }));
-                  }}
-                />
-              </div>
-              <div className="col-span-2">
-                <label className="text-sm font-medium">Ghi chú</label>
-                <textarea
-                  rows={2}
-                  className="w-full rounded-xl px-3 py-2 bg-gray-50 focus:bg-white shadow-inner focus:outline-none focus:ring-2 focus:ring-sky-200"
-                  value={editing.note || ""}
-                  onChange={(e) =>
-                    setEditing({ ...editing, note: e.target.value })
-                  }
-                />
+              
+              <div className="space-y-1">
+                 <label className="text-xs font-bold text-slate-500 uppercase">Ghi chú</label>
+                 <textarea rows={2}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                    value={editing.note} 
+                    onChange={e => setEditing({...editing, note: e.target.value})}
+                  />
               </div>
             </div>
 
-            <div className="p-4 flex items-center justify-between">
-              <div className="text-sm text-gray-700">
-                Tổng tiền:{" "}
-                <b className="text-indigo-700">{vnd(editing.total)}</b>
-              </div>
-              <div className="flex items-center gap-2">
-                <select
-                  value={editing.status}
-                  onChange={(e) =>
-                    setEditing({ ...editing, status: e.target.value })
-                  }
-                  className="rounded-xl px-3 py-2 bg-gray-50 focus:bg-white shadow-inner focus:outline-none focus:ring-2 focus:ring-sky-200 text-sm"
-                >
-                  {STATUS.map((s) => (
-                    <option key={s} value={s}>
-                      {STATUS_LABEL[s] || s}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  onClick={saveEdit}
-                  className="px-4 py-2 rounded-xl font-medium text-white bg-gradient-to-r from-sky-500 to-indigo-600 shadow hover:brightness-110"
-                >
-                  Lưu
-                </button>
-              </div>
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
+               <button onClick={() => setEditing(null)} className="px-4 py-2 text-slate-600 text-sm font-medium hover:bg-slate-200 rounded-lg transition-colors">Hủy</button>
+               <button onClick={saveEdit} className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200">Lưu thay đổi</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Toast */}
-      <Toast
-        open={toast.open}
-        type={toast.type}
-        message={toast.message}
-        onClose={() => setToast((t) => ({ ...t, open: false }))}
-      />
-    </>
+      {/* Toast Notification */}
+      {toast.open && (
+        <div className={`fixed top-6 right-6 z-[70] px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-fade-in-down text-white ${
+          toast.type === 'success' ? 'bg-emerald-600' : toast.type === 'warn' ? 'bg-rose-600' : 'bg-slate-800'
+        }`}>
+           {toast.type === 'success' ? <CheckCircle size={18}/> : <AlertCircle size={18}/>}
+           <span className="font-medium text-sm">{toast.message}</span>
+        </div>
+      )}
+    </div>
   );
 }

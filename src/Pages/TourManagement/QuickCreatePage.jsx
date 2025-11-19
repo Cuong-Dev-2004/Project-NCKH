@@ -1,23 +1,39 @@
 import { useMemo, useState } from "react";
 import DetailPresets from "../../data/Data";
-import guides from "../../data/guides";
+import guidesList from "../../data/guides"; 
+import { 
+  MapPin, User, Calendar, Clock, Users, Mail, Phone, FileText, 
+  CheckCircle, PlusCircle, Calculator
+} from "lucide-react";
 
+// --- DATA & HELPER ---
 const TOURS = Object.values(DetailPresets)
   .map((x) => ({ id: Number(x.id), name: x.name, price: Number(x.price) }))
   .sort((a, b) => a.id - b.id);
 
-// Chuẩn hoá giá HDV theo ngày (giờ * 8)
-const GUIDES = guides.map((g) => ({
-  ...g,
-  pricePerDay: g.priceType === "giờ" ? g.price * 8 : g.price,
-}));
-
+const GUIDES = guidesList;
 const LS_KEY = "bookings_admin_demo_v1";
 const vnd = (n) => (Number(n || 0)).toLocaleString("vi-VN") + "đ";
 const genCode = () => {
   const d = new Date();
   return `BK-${d.getFullYear()}${String(d.getMonth() + 1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}-${Math.floor(Math.random()*9000+1000)}`;
 };
+
+// 🔥 QUAN TRỌNG: Đưa component InputField ra ngoài để không bị mất focus khi gõ
+const InputField = ({ label, icon: Icon, ...props }) => (
+  <div className="space-y-1.5">
+    <label className="text-sm font-medium text-slate-700">{label}</label>
+    <div className="relative">
+      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+        <Icon size={18} />
+      </div>
+      <input
+        {...props}
+        className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition-all"
+      />
+    </div>
+  </div>
+);
 
 export default function QuickCreatePage() {
   const [form, setForm] = useState({
@@ -36,31 +52,17 @@ export default function QuickCreatePage() {
   const guide = useMemo(() => GUIDES.find((g) => g.id === Number(form.guideId)), [form.guideId]);
 
   const total = useMemo(() => {
-    const base = (tour?.price || 0) * form.people * form.days;
-    const guideCost = (guide?.pricePerDay || 0) * form.days;
-    return base + guideCost;
+    const tourCost = (tour?.price || 0) * form.people * form.days;
+    const guideCost = (guide?.price || 0) * form.days;
+    return tourCost + guideCost;
   }, [tour, guide, form.people, form.days]);
 
   const save = (e) => {
     e.preventDefault();
-
-    // 1) Hộp thoại xác nhận trước khi lưu
-    const ok = window.confirm(
-      [
-        "Bạn có chắc muốn tạo đơn này?",
-        `• Tour: ${tour?.name || ""} (#${tour?.id ?? "-"})`,
-        `• Hướng dẫn viên: ${guide?.name || ""} (${guide?.language || ""})`,
-        `• Khởi hành: ${form.checkinDate} · ${form.days} ngày · ${form.people} khách`,
-        `• Khách: ${form.customerName || "Khách lẻ"} · ${form.phone || "-"} · ${form.email || "-"}`,
-        `• Tổng tiền: ${vnd(total)}`,
-        "",
-        "Chọn OK để tạo đơn, Cancel để xem lại."
-      ].join("\n")
-    );
-
+    // ... (Logic lưu giữ nguyên như cũ)
+    const ok = window.confirm(`Xác nhận tạo đơn cho khách ${form.customerName}?`);
     if (!ok) return;
 
-    // 2) Lưu vào localStorage
     const raw = localStorage.getItem(LS_KEY);
     const data = raw ? JSON.parse(raw) : [];
     const now = new Date().toISOString();
@@ -70,6 +72,8 @@ export default function QuickCreatePage() {
       code: genCode(),
       tourId: tour.id,
       tourName: tour.name,
+      guideId: guide?.id,
+      guideName: guide?.name,
       customerName: form.customerName || "Khách lẻ",
       phone: form.phone,
       email: form.email,
@@ -81,135 +85,142 @@ export default function QuickCreatePage() {
       status: "pending",
       createdAt: now,
       updatedAt: now,
-      guideId: guide?.id,
-      guideName: guide?.name,
     });
 
     localStorage.setItem(LS_KEY, JSON.stringify(data));
-    alert("Đã tạo đơn và đưa vào Danh sách đơn!");
+    alert("✅ Đã tạo đơn thành công!");
+    
+    setForm(prev => ({
+      ...prev,
+      customerName: "",
+      phone: "",
+      email: "",
+      note: ""
+    }));
   };
 
   return (
-    <section className="rounded-2xl p-4 shadow-xl ring-1 ring-black/5 bg-white/90 max-w-3xl">
-      <h3 className="text-lg font-semibold mb-3">Tạo đơn nhanh</h3>
-      <form onSubmit={save} className="grid grid-cols-1 gap-3">
-        <div>
-          <label className="text-sm font-medium">Chọn tour</label>
-          <select
-            value={form.tourId}
-            onChange={(e) => setForm({ ...form, tourId: Number(e.target.value) })}
-            className="w-full rounded-xl px-3 py-2 bg-gray-50 focus:bg-white shadow-inner focus:outline-none focus:ring-2 focus:ring-sky-200"
-          >
-            {TOURS.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name} ({vnd(t.price)}/ngày)
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="text-sm font-medium">Chọn hướng dẫn viên</label>
-          <select
-            value={form.guideId}
-            onChange={(e) => setForm({ ...form, guideId: Number(e.target.value) })}
-            className="w-full rounded-xl px-3 py-2 bg-gray-50 focus:bg-white shadow-inner focus:outline-none focus:ring-2 focus:ring-sky-200"
-          >
-            {GUIDES.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.name} · {g.language} · {vnd(g.pricePerDay)}/ngày
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
+    <div className="flex justify-center p-6 bg-slate-50 min-h-screen">
+      <section className="w-full max-w-4xl bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-6 text-white flex items-center gap-3">
+          <div className="p-2 bg-white/20 rounded-lg"><PlusCircle size={24} /></div>
           <div>
-            <label className="text-sm font-medium">Ngày khởi hành</label>
-            <input
-              type="date"
-              value={form.checkinDate}
-              onChange={(e) => setForm({ ...form, checkinDate: e.target.value })}
-              className="w-full rounded-xl px-3 py-2 bg-gray-50 focus:bg-white shadow-inner focus:outline-none focus:ring-2 focus:ring-sky-200"
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium">Số ngày</label>
-            <input
-              type="number" min={1}
-              value={form.days}
-              onChange={(e) => setForm({ ...form, days: Number(e.target.value) })}
-              className="w-full rounded-xl px-3 py-2 bg-gray-50 focus:bg-white shadow-inner focus:outline-none focus:ring-2 focus:ring-sky-200"
-            />
+            <h3 className="text-xl font-bold">Tạo Đơn Tour Nhanh</h3>
+            <p className="text-blue-100 text-sm">Nhập thông tin để tạo đơn hàng mới</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-sm font-medium">Họ tên khách</label>
-            <input
-              value={form.customerName}
-              onChange={(e) => setForm({ ...form, customerName: e.target.value })}
-              className="w-full rounded-xl px-3 py-2 bg-gray-50 focus:bg-white shadow-inner focus:outline-none focus:ring-2 focus:ring-sky-200"
-              placeholder="VD: Trần Văn B"
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium">Số điện thoại</label>
-            <input
-              value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })}
-              className="w-full rounded-xl px-3 py-2 bg-gray-50 focus:bg-white shadow-inner focus:outline-none focus:ring-2 focus:ring-sky-200"
-              placeholder="09xxxxxxx"
-            />
-          </div>
-        </div>
+        <form onSubmit={save} className="p-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* CỘT TRÁI: DỊCH VỤ */}
+            <div className="space-y-5">
+              <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wider border-b pb-2 mb-4">Thông tin dịch vụ</h4>
+              {/* ... (Giữ nguyên phần chọn Tour/HDV/Ngày) ... */}
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-slate-700">Chọn Tour</label>
+                <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><MapPin size={18} /></div>
+                    <select 
+                        value={form.tourId} 
+                        onChange={(e) => setForm({ ...form, tourId: Number(e.target.value) })}
+                        className="w-full pl-10 pr-10 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none shadow-sm"
+                    >
+                        {TOURS.map((t) => (<option key={t.id} value={t.id}>{t.name} — {vnd(t.price)}/người/ngày</option>))}
+                    </select>
+                </div>
+              </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-sm font-medium">Email</label>
-            <input
-              type="email"
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-              className="w-full rounded-xl px-3 py-2 bg-gray-50 focus:bg-white shadow-inner focus:outline-none focus:ring-2 focus:ring-sky-200"
-              placeholder="email@domain.com"
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium">Số khách</label>
-            <input
-              type="number" min={1}
-              value={form.people}
-              onChange={(e) => setForm({ ...form, people: Number(e.target.value) })}
-              className="w-full rounded-xl px-3 py-2 bg-gray-50 focus:bg-white shadow-inner focus:outline-none focus:ring-2 focus:ring-sky-200"
-            />
-          </div>
-        </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-slate-700">Hướng dẫn viên</label>
+                <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><User size={18} /></div>
+                    <select 
+                        value={form.guideId} 
+                        onChange={(e) => setForm({ ...form, guideId: Number(e.target.value) })}
+                        className="w-full pl-10 pr-10 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none shadow-sm"
+                    >
+                        {GUIDES.map((g) => (<option key={g.id} value={g.id}>{g.name} ({g.location}) — {vnd(g.price)}/ngày</option>))}
+                    </select>
+                </div>
+                {guide && (
+                  <div className="flex items-center gap-2 text-xs text-slate-500 mt-1 ml-1">
+                    <span className={`w-2 h-2 rounded-full ${guide.available ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
+                    {guide.available ? 'Đang rảnh' : 'Đang bận'} • {guide.language} • {guide.style}
+                  </div>
+                )}
+              </div>
 
-        <div>
-          <label className="text-sm font-medium">Ghi chú</label>
-          <textarea
-            value={form.note}
-            onChange={(e) => setForm({ ...form, note: e.target.value })}
-            className="w-full rounded-xl px-3 py-2 bg-gray-50 focus:bg-white shadow-inner focus:outline-none focus:ring-2 focus:ring-sky-200"
-            rows={2}
-            placeholder="Yêu cầu thêm..."
-          />
-        </div>
+              <div className="grid grid-cols-2 gap-4">
+                <InputField label="Ngày khởi hành" icon={Calendar} type="date" value={form.checkinDate} onChange={(e) => setForm({ ...form, checkinDate: e.target.value })} />
+                <InputField label="Số ngày đi" icon={Clock} type="number" min={1} value={form.days} onChange={(e) => setForm({ ...form, days: Number(e.target.value) })} />
+              </div>
+              
+              <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 text-sm text-blue-800">
+                <div className="flex items-center gap-2 mb-2 font-semibold"><Calculator size={16} /> Chi tiết tạm tính:</div>
+                <ul className="space-y-1 text-blue-700/80 pl-5 list-disc text-xs">
+                  <li><b>Tour:</b> {vnd(tour?.price)} x {form.people} khách x {form.days} ngày = <span className="font-mono font-bold">{vnd((tour?.price || 0) * form.people * form.days)}</span></li>
+                  <li><b>HDV:</b> {guide?.name} ({vnd(guide?.price)}/ngày) x {form.days} ngày = <span className="font-mono font-bold">{vnd((guide?.price || 0) * form.days)}</span></li>
+                </ul>
+              </div>
+            </div>
 
-        <div className="flex items-center justify-between pt-2">
-          <div className="text-sm text-gray-700">
-            Tổng tiền tạm tính: <b className="text-indigo-700">{vnd(total)}</b>
+            {/* CỘT PHẢI: KHÁCH HÀNG */}
+            <div className="space-y-5">
+              <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wider border-b pb-2 mb-4">Thông tin khách hàng</h4>
+              
+              <InputField 
+                label="Họ và tên" icon={User} placeholder="VD: Nguyễn Văn A"
+                value={form.customerName}
+                onChange={(e) => setForm({ ...form, customerName: e.target.value })}
+              />
+
+              <div className="grid grid-cols-2 gap-4">
+                <InputField 
+                  label="Số điện thoại" icon={Phone} placeholder="090..."
+                  value={form.phone}
+                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                />
+                 <InputField 
+                  label="Số lượng khách" icon={Users} type="number" min={1}
+                  value={form.people}
+                  onChange={(e) => setForm({ ...form, people: Number(e.target.value) })}
+                />
+              </div>
+
+              <InputField 
+                label="Email liên hệ" icon={Mail} type="email" placeholder="email@example.com"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+              />
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-slate-700">Ghi chú thêm</label>
+                <div className="relative">
+                  <div className="absolute top-3 left-3 pointer-events-none text-slate-400"><FileText size={18} /></div>
+                  <textarea
+                    rows={3}
+                    value={form.note}
+                    onChange={(e) => setForm({ ...form, note: e.target.value })}
+                    className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                    placeholder="Yêu cầu đặc biệt..."
+                  />
+                </div>
+              </div>
+            </div>
           </div>
-          <button
-            type="submit"
-            className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-white bg-gradient-to-r from-sky-500 to-indigo-600 shadow hover:brightness-110"
-          >
-            Tạo đơn
-          </button>
-        </div>
-      </form>
-    </section>
+
+          <div className="mt-8 pt-6 border-t border-slate-100 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="text-right">
+                <span className="block text-xs text-slate-500 font-medium uppercase">Tổng thành tiền (Dự kiến)</span>
+                <span className="block text-3xl font-bold text-indigo-600 tracking-tight">{vnd(total)}</span>
+            </div>
+            <button type="submit" className="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl shadow-lg shadow-indigo-200 transition-all flex items-center justify-center gap-2">
+              <CheckCircle size={20} /> Xác nhận tạo đơn
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
   );
 }

@@ -1,6 +1,5 @@
-// src/Pages/Cart/Cart.jsx
 import { useState, useMemo, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { vnd } from "../../utils/money.js";
 import { useCart } from "../../utils/cartContext.jsx";
 import SePayModal from "../../components/Payment/SePayModal";
@@ -17,34 +16,30 @@ function Row({ label, value, highlight = false }) {
 
 export default function Cart() {
   const { items, updateQty, remove, clear } = useCart();
+  const navigate = useNavigate();
 
   const [coupon, setCoupon] = useState("");
   const [note, setNote] = useState("");
+  
+  // Thông tin hiển thị ở màn hình Cart (chưa thanh toán)
+  const [email, setEmail] = useState(""); 
 
-  // Modal + orderId
   const [openPay, setOpenPay] = useState(false);
   const [orderId] = useState(() => "ORDER_" + Date.now());
 
-  // --- Tính tiền an toàn ---
-  const subtotal = useMemo(
-    () =>
-      items.reduce((s, it) => {
-        const p = Number(it.price) || 0;
-        const q = Math.max(1, parseInt(it.qty, 10) || 1);
-        return s + p * q;
-      }, 0),
-    [items]
-  );
+  // Tự động điền email nếu trong giỏ hàng có sẵn
+  useEffect(() => {
+    if (items.length > 0) {
+      const firstEmail = items.find(i => i.meta?.email)?.meta?.email;
+      if (firstEmail && !email) setEmail(firstEmail);
+    }
+  }, [items]);
 
-  const discount = useMemo(() => {
-    const ok = coupon.trim().toUpperCase() === "TOUR10";
-    return ok ? Math.round(subtotal * 0.1) : 0;
-  }, [coupon, subtotal]);
-
+  const subtotal = useMemo(() => items.reduce((s, it) => s + (Number(it.price) || 0) * (Math.max(1, parseInt(it.qty, 10) || 1)), 0), [items]);
+  const discount = useMemo(() => (coupon.trim().toUpperCase() === "TOUR10" ? Math.round(subtotal * 0.1) : 0), [coupon, subtotal]);
   const total = Math.max(0, subtotal - discount);
-  const totalInt = useMemo(() => Math.round(Number(total) || 0), [total]); // dùng cho QR
+  const totalInt = useMemo(() => Math.round(Number(total) || 0), [total]);
 
-  // Đóng modal nếu giỏ trống
   useEffect(() => {
     if (!items.length && openPay) setOpenPay(false);
   }, [items.length, openPay]);
@@ -52,7 +47,7 @@ export default function Cart() {
   const handleCheckout = () => {
     if (!items.length) return;
     if (totalInt <= 0) {
-      alert("Tổng thanh toán đang bằng 0. Vui lòng kiểm tra lại giỏ hàng/mã giảm giá.");
+      alert("Tổng thanh toán bằng 0. Vui lòng kiểm tra lại.");
       return;
     }
     setOpenPay(true);
@@ -60,13 +55,11 @@ export default function Cart() {
 
   if (!items.length) {
     return (
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      <div className="max-w-6xl mx-auto px-4 py-10 text-center">
         <h1 className="text-4xl font-extrabold mb-6">Giỏ hàng</h1>
-        <div className="rounded-xl bg-white shadow-sm ring-1 ring-gray-200 p-8 text-center">
+        <div className="bg-white p-8 rounded-xl shadow-sm ring-1 ring-gray-200">
           <p className="text-gray-700">Giỏ hàng trống.</p>
-          <Link to="/tours" className="inline-block mt-4 px-5 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700">
-            Tiếp tục đặt tour
-          </Link>
+          <Link to="/tours" className="inline-block mt-4 px-5 py-2 bg-blue-600 text-white rounded-lg">Tiếp tục đặt tour</Link>
         </div>
       </div>
     );
@@ -77,171 +70,124 @@ export default function Cart() {
       <h1 className="text-4xl font-extrabold mb-6">Giỏ hàng</h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* danh sách sản phẩm */}
+        {/* Cột trái: Danh sách */}
         <div className="lg:col-span-2">
           <div className="rounded-xl bg-white shadow-sm ring-1 ring-gray-200 overflow-hidden">
-            <div className="bg-sky-500 text-white font-semibold px-6 py-3 grid grid-cols-12">
-              <div className="col-span-7">SẢN PHẨM</div>
+            <div className="bg-sky-500 text-white font-semibold px-6 py-3 grid grid-cols-12 text-sm">
+              <div className="col-span-6">SẢN PHẨM</div>
               <div className="col-span-2 text-right">GIÁ</div>
-              <div className="col-span-1 text-center">SỐ LƯỢNG</div>
-              <div className="col-span-2 text-right">TẠM TÍNH</div>
+              <div className="col-span-2 text-center">SỐ LƯỢNG</div>
+              <div className="col-span-2 text-right">THÀNH TIỀN</div>
             </div>
-
             {items.map((it) => (
-              <div key={it.key} className="px-6 py-4 grid grid-cols-12 items-center border-b last:border-0">
-                <div className="col-span-7 flex gap-4">
-                  <img src={it.img} alt={it.name} className="w-20 h-20 object-cover rounded-lg" />
-                  <div className="space-y-1">
+              <div key={it.key} className="px-6 py-4 grid grid-cols-12 items-center border-b last:border-0 text-sm">
+                <div className="col-span-6 flex gap-4">
+                  <img src={it.img} alt={it.name} className="w-16 h-16 object-cover rounded-lg" />
+                  <div>
                     <div className="font-semibold">{it.name}</div>
-                    {!!it?.meta?.checkIn && <div className="text-sm text-gray-600">Check in: {it.meta.checkIn}</div>}
-                    {!!it?.meta?.checkOut && <div className="text-sm text-gray-600">Check out: {it.meta.checkOut}</div>}
-                    {!!it?.meta?.adults && <div className="text-sm text-gray-600">Người lớn: {it.meta.adults}</div>}
-                    <button onClick={() => remove(it.key)} className="mt-1 text-red-600 hover:underline text-sm">
-                      Xóa
-                    </button>
+                    <div className="text-xs text-gray-500">{it.meta?.checkIn && `Ngày đi: ${it.meta.checkIn}`}</div>
+                    <button onClick={() => remove(it.key)} className="text-red-600 text-xs hover:underline">Xóa</button>
                   </div>
                 </div>
-
                 <div className="col-span-2 text-right">{vnd(it.price)}</div>
-
-                <div className="col-span-1 text-center">
-                  <input
-                    type="number"
-                    min="1"
-                    value={it.qty}
-                    onChange={(e) => updateQty(it.key, e.target.value)}
-                    className="w-16 rounded-md border border-gray-300 px-2 py-1 text-center focus:outline-none focus:ring-2 focus:ring-sky-200"
-                  />
+                <div className="col-span-2 text-center">
+                  <input type="number" min="1" value={it.qty} onChange={(e) => updateQty(it.key, e.target.value)} className="w-14 text-center border rounded-md" />
                 </div>
-
-                <div className="col-span-2 text-right font-semibold">
-                  {vnd((Number(it.price) || 0) * (Math.max(1, parseInt(it.qty, 10) || 1)))}
-                </div>
+                <div className="col-span-2 text-right font-bold text-sky-600">{vnd((Number(it.price)||0) * (Math.max(1, parseInt(it.qty)||1)))}</div>
               </div>
             ))}
           </div>
-
-          <div className="mt-4 flex flex-col sm:flex-row sm:items-center gap-3">
-            <input
-              value={coupon}
-              onChange={(e) => setCoupon(e.target.value)}
-              placeholder="Nhập mã giảm giá (VD: TOUR10)"
-              className="w-full sm:w-72 rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sky-200"
-            />
-            <button className="px-4 py-2 rounded-md bg-sky-600 text-white hover:bg-sky-700">Áp dụng</button>
-            <button
-              onClick={() => { clear(); setOpenPay(false); }}
-              className="px-4 py-2 rounded-md border border-gray-300 hover:bg-gray-50"
-            >
-              Xóa giỏ hàng
-            </button>
+          
+          {/* Ghi chú */}
+          <div className="mt-6 bg-white p-6 rounded-xl shadow-sm ring-1 ring-gray-200">
+             <h3 className="font-bold mb-2">Ghi chú đơn hàng</h3>
+             <textarea value={note} onChange={(e) => setNote(e.target.value)} className="w-full p-2 border rounded-lg" placeholder="Yêu cầu đặc biệt..." />
           </div>
-
-          <textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="Ghi chú cho đơn hàng (tuỳ chọn)"
-            className="mt-4 w-full rounded-md border border-gray-300 px-3 py-2 h-28 focus:outline-none focus:ring-2 focus:ring-sky-200"
-          />
         </div>
 
-        {/* tổng cộng */}
+        {/* Cột phải: Tổng tiền */}
         <div>
-          <div className="rounded-xl bg-white shadow-sm ring-1 ring-gray-200 overflow-hidden">
-            <div className="px-6 py-3 font-bold border-b">TỔNG CỘNG GIỎ HÀNG</div>
-            <Row label="Tạm tính" value={vnd(subtotal)} highlight />
-            <Row label="Ưu đãi" value={discount ? `- ${vnd(discount)}` : vnd(0)} />
-            <div className="px-6 py-4 flex justify-between items-center">
-              <span className="font-semibold">Tổng</span>
-              <span className="text-red-600 font-bold text-lg">{vnd(totalInt)}</span>
+          <div className="bg-white rounded-xl shadow-sm ring-1 ring-gray-200 sticky top-6">
+            <div className="p-4 border-b font-bold text-lg">TỔNG CỘNG</div>
+            <Row label="Tạm tính" value={vnd(subtotal)} />
+            <Row label="Giảm giá" value={vnd(discount)} highlight={discount > 0} />
+            <div className="p-4 flex justify-between items-center text-xl font-bold text-red-600">
+              <span>Thanh toán</span>
+              <span>{vnd(totalInt)}</span>
+            </div>
+            <div className="p-4">
+              <button onClick={handleCheckout} disabled={totalInt<=0} className="w-full py-3 bg-sky-600 text-white font-bold rounded-xl hover:bg-sky-700 disabled:bg-gray-300">Thanh toán ngay</button>
             </div>
           </div>
-
-          <button
-            onClick={handleCheckout}
-            disabled={totalInt <= 0}
-            className={`mt-4 w-full py-3 rounded-xl text-lg font-semibold transition
-              ${totalInt > 0 ? "bg-sky-600 text-white hover:bg-sky-700" : "bg-gray-200 text-gray-500 cursor-not-allowed"}`}
-          >
-            Thanh toán (VietQR)
-          </button>
-
-          <Link
-            to="/tours"
-            className="mt-3 inline-block w-full text-center py-2 rounded-lg border border-gray-300 hover:bg-gray-50"
-          >
-            Tiếp tục đặt tour
-          </Link>
         </div>
       </div>
 
-      {/* Modal VietQR / SePay */}
+      {/* --- MODAL THANH TOÁN --- */}
       <SePayModal
         open={openPay}
         amount={totalInt}
         orderId={orderId}
+        // Truyền dữ liệu điền sẵn (nếu có từ form đặt tour)
+        initialName={items[0]?.meta?.customerName || ""}
+        initialPhone={items[0]?.meta?.phone || ""}
+        initialEmail={email || items[0]?.meta?.email || ""}
         onClose={() => setOpenPay(false)}
 
-        // KHÔNG tạo đơn ở đây — chỉ log cho biết QR đã render OK
-        onSuccess={(info) => {
-          console.log("[Payment ready]", info);
-        }}
-        onError={(m) => console.warn(m)}
+        // 🔥 HÀM QUAN TRỌNG NHẤT: NHẬN DỮ LIỆU VÀ LƯU
+        onPaidConfirm={(info) => {
+          console.log("Dữ liệu khách hàng nhận được:", info);
 
-        // Nếu dùng SePay thật, truyền 2 prop dưới (tuỳ chọn):
-        // sepayQrImage="https://link-qr-sepay.png"
-        // sepayCheckoutUrl="https://sepay.vn/checkout/xxxx"
-
-        // Chỉ khi KH bấm OK mới tạo order & booking
-        onPaidConfirm={() => {
-          // 1) Order tổng
+          // 1. Tạo Order Tổng
           const order = {
             _id: crypto.randomUUID(),
             code: genCode("OD"),
-            orderIdGateway: orderId,
-            gatewayMeta: {},  // có thể lưu thêm info nếu muốn
             items,
             note,
-            coupon: coupon.trim().toUpperCase() || null,
+            coupon: coupon || null,
             subtotal,
             discount,
             total: totalInt,
-            status: "paid",   // hoặc 'verifying' nếu cần duyệt tay
+            status: "paid",
             createdAt: new Date().toISOString(),
+            // Lưu thông tin khách CHÍNH XÁC từ modal
+            customerName: info.customerName,
+            phone: info.phone,
+            email: info.email
           };
 
-          // 2) Chuyển từng item → booking (đồng bộ với trang admin)
+          // 2. Tạo từng Booking lẻ cho Admin
           const bookings = items.map((it) => {
-            const days = countDaysInclusive(it?.meta?.checkIn, it?.meta?.checkOut);
-            const qty  = Math.max(1, parseInt(it.qty, 10) || 1);
+            const days = it.meta?.type === 'guide' ? it.qty : (countDaysInclusive(it?.meta?.checkIn, it?.meta?.checkOut) || 1);
             return {
               _id: crypto.randomUUID(),
               code: genCode("BK"),
               tourId: it.tourId || it.id,
               tourName: it.name,
-              customerName: it?.meta?.customerName || "Khách lẻ",
-              phone: it?.meta?.phone || "",
-              email: it?.meta?.email || "",
-              people: it?.meta?.adults || qty,
-              checkinDate: it?.meta?.checkIn || new Date().toISOString().slice(0,10),
-              days,
-              note: note || it?.meta?.note || "",
-              total: (Number(it.price) || 0) * qty * days,
+              
+              // 🔥 GHI ĐÈ thông tin khách bằng info từ Modal
+              customerName: info.customerName, 
+              phone: info.phone,
+              email: info.email,
+
+              people: Number(it.meta?.adults || 1),
+              checkinDate: it.meta?.checkIn || new Date().toISOString().slice(0,10),
+              days: Number(days),
+              note: note || it.meta?.note || "",
+              total: (Number(it.price) || 0) * (Number(it.qty) || 1),
               status: "confirmed",
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
             };
           });
 
-          // 3) Lưu LocalStorage (orders + bookings)
+          // 3. Lưu vào LocalStorage
           saveOrderAndBookings({ order, bookings });
 
-          // 4) Clear giỏ + đóng modal
+          // 4. Dọn dẹp
           clear();
           setOpenPay(false);
-
-          // 5) Thông báo cho KH
-          alert("Đã ghi nhận thanh toán. Xin hãy đợi giây lát để nhân viên kiểm tra!");
+          alert(`✅ Đã lưu đơn hàng cho khách: ${info.customerName}`);
+          navigate("/");
         }}
       />
     </div>

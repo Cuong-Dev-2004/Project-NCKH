@@ -1,19 +1,22 @@
-// src/Pages/TourBookingFlow/TourBookingFlow.jsx
 import { useEffect, useMemo, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+import { 
+  User, Phone, Calendar, Users, FileText, 
+  MapPin, Globe, Award, CheckCircle, Star, Calculator, PlusCircle, XCircle, RefreshCcw
+} from "lucide-react";
 import NavDown from "../../components/Ui/NavDownTourBookingFlow";
-import guidesAllRaw from "../../data/guides";
+import guidesDefault from "../../data/guides"; 
 import { vnd } from "../../utils/money";
-import { useCart } from "../../utils/cartContext.jsx"; // ✅ NEW
+import { useCart } from "../../utils/cartContext.jsx";
+import { DetailPresets } from "../../data/Data";
 
-/* ======= PHỤ PHÍ GÓI TOUR THEO ID ======= */
-const PACKAGE_FEES = {
-  1: 100000, 2: 120000, 3: 80000, 4: 90000, 5: 110000,
-  6: 95000, 7: 85000, 8: 70000, 9: 105000, 10: 60000,
-  11: 100000, 12: 130000, 13: 90000, 14: 150000, 15: 95000,
-};
+// 🔥 KEY ĐỒNG BỘ (Phải khớp với Admin)
+const LS_GUIDE_STATUS = "guides_status_manager_v2";
 
-/* -------------------- HELPERS -------------------- */
+const TOUR_LIST = Object.values(DetailPresets).map(t => ({
+  id: t.id, name: t.name, price: t.price, location: t.locationText
+}));
+
 function countDaysInclusive(startDate, endDate) {
   if (!startDate) return 1;
   const s = new Date(startDate);
@@ -22,52 +25,78 @@ function countDaysInclusive(startDate, endDate) {
   return Math.max(1, Math.round((e - s) / ONE) + 1);
 }
 
-// Thuế chỉ tính trên HOA HỒNG
-function calcTotal({
-  basePrice,
-  qty,
-  people = 1,
-  extraRatePerPerson = 0.1,
-  commissionRate = 0.2,
-  platformFee = 0,
-  taxRate = 0,
-  packageFee = 0,
-}) {
-  const subtotal = (Number(basePrice) || 0) * (Number(qty) || 0);          // giá HDV * số ngày
+function calcTotal({ basePrice, qty, people = 1, extraRatePerPerson = 0.1, commissionRate = 0.2, platformFee = 0, taxRate = 0, packageFee = 0 }) {
+  const subtotal = (Number(basePrice) || 0) * (Number(qty) || 0);
   const extraPeopleCount = Math.max(0, Number(people || 1) - 1);
   const extraPeopleFee = subtotal * (Number(extraRatePerPerson) || 0) * extraPeopleCount;
-
   const commission = (subtotal + extraPeopleFee) * (Number(commissionRate) || 0);
   const pf = Number(platformFee) || 0;
-  const taxBase = commission;
-  const tax = taxBase * (Number(taxRate) || 0);
-
-  const total = subtotal + extraPeopleFee + commission + pf + tax + (Number(packageFee) || 0);
-  return {
-    subtotal,
-    extraPeopleFee,
-    commission,
-    platformFee: pf,
-    tax,
-    packageFee: Number(packageFee) || 0,
-    total,
-    extraPeopleCount,
-  };
+  const tax = commission * (Number(taxRate) || 0);
+  const totalPackageFee = (Number(packageFee) || 0) * people; 
+  const total = subtotal + extraPeopleFee + commission + pf + tax + totalPackageFee;
+  return { subtotal, extraPeopleFee, commission, platformFee: pf, tax, packageFee: totalPackageFee, total, extraPeopleCount };
 }
-/* ------------------------------------------------- */
+
+const FormInput = ({ icon: Icon, label, ...props }) => (
+  <div className="space-y-1.5">
+    <label className="text-xs font-bold text-slate-500 uppercase tracking-wide ml-1">{label}</label>
+    <div className="relative">
+      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><Icon size={18} /></div>
+      <input {...props} className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all shadow-sm" />
+    </div>
+  </div>
+);
 
 export default function TourBookingFlow() {
   const navigate = useNavigate();
   const locationHook = useLocation();
-  const { add } = useCart(); // ✅ NEW
+  const { add } = useCart();
   const qs = useMemo(() => new URLSearchParams(locationHook.search), [locationHook.search]);
 
-  // Từ Booking / Query
-  const tourIdFromBooking = useMemo(() => Number(qs.get("tourId") || 0), [qs]);
-  const tourTitleFromBooking = useMemo(() => qs.get("tourTitle") || "", [qs]);
+  const [selectedTourId, setSelectedTourId] = useState(Number(qs.get("tourId")) || 0);
+  const currentTour = useMemo(() => TOUR_LIST.find(t => t.id === selectedTourId), [selectedTourId]);
+
+  // --- LOAD DỮ LIỆU HDV ---
+  const [guidesAll, setGuidesAll] = useState([]);
+
+  const loadGuidesData = () => {
+    const savedGuides = localStorage.getItem(LS_GUIDE_STATUS);
+    let finalGuides = [];
+    
+    if (savedGuides) {
+      finalGuides = JSON.parse(savedGuides);
+    } else {
+      finalGuides = guidesDefault;
+    }
+    // Chuẩn hóa dữ liệu
+    setGuidesAll(finalGuides.map(g => ({ 
+        ...g, 
+        price: Number(g.price), 
+        priceType: "ngày" 
+    })));
+  };
+
+  useEffect(() => {
+    loadGuidesData();
+    
+    // Lắng nghe sự kiện thay đổi từ Admin
+    const handleStorageChange = (e) => { 
+        if (e.key === LS_GUIDE_STATUS) loadGuidesData(); 
+    };
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Lắng nghe khi quay lại tab này
+    const handleFocus = () => loadGuidesData();
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, []);
 
   const [filters, setFilters] = useState({
-    location: qs.get("destination") || "",
+    location: qs.get("destination") || (currentTour?.location?.split(',')[0] || ""),
     language: qs.get("language") || "",
     style: qs.get("guideStyle") || "",
     startDate: qs.get("startDate") || "",
@@ -76,470 +105,231 @@ export default function TourBookingFlow() {
   });
 
   const [miniForm, setMiniForm] = useState({
-    fullName: qs.get("name") || "",
-    phone: qs.get("phone") || "",
-    startDate: qs.get("startDate") || "",
-    endDate: qs.get("endDate") || "",
-    notes: qs.get("notes") || "",
+    fullName: qs.get("name") || "", phone: qs.get("phone") || "",
+    startDate: qs.get("startDate") || "", endDate: qs.get("endDate") || "", notes: qs.get("notes") || "",
   });
 
-  // Chính sách giá
-  const priceCfg = {
-    commissionRate: 0.2,
-    platformFee: 0,
-    taxRate: 0,
-    extraRatePerPerson: 0.1,
-  };
-
-  // Phụ phí gói theo tourId
-  const packageFee = useMemo(() => PACKAGE_FEES[tourIdFromBooking] || 0, [tourIdFromBooking]);
-
-  // Ép tất cả HDV sang "ngày"
-  const guidesAll = useMemo(
-    () => guidesAllRaw.map(g => ({ ...g, priceType: "ngày" })),
-    []
-  );
-
-  // Bộ lọc + phân trang
-  const [renderGuides, setRenderGuides] = useState(guidesAll);
+  const priceCfg = { commissionRate: 0.2, platformFee: 0, taxRate: 0, extraRatePerPerson: 0.1 };
+  const [renderGuides, setRenderGuides] = useState([]);
   const [selectedGuide, setSelectedGuide] = useState(null);
-
   const [page, setPage] = useState(1);
   const PER_PAGE = 6;
 
-  const resetFilters = () => {
-    setFilters((s) => ({ ...s, location: "", language: "", style: "" }));
-    setPage(1);
-  };
-  const hasFilter = !!(filters.location || filters.language || filters.style);
-
+  // Effect lọc danh sách khi filters HOẶC dữ liệu guidesAll thay đổi
   useEffect(() => {
     let filtered = guidesAll;
-    if (filters.location) filtered = filtered.filter((g) => g.location === filters.location);
+    if (filters.location) filtered = filtered.filter((g) => g.location.includes(filters.location));
     if (filters.language) filtered = filtered.filter((g) => g.language === filters.language);
     if (filters.style) filtered = filtered.filter((g) => g.style === filters.style);
     setRenderGuides(filtered);
-    setPage(1);
-  }, [filters, guidesAll]);
 
-  const totalPages = Math.max(1, Math.ceil(renderGuides.length / PER_PAGE));
-  const pagedGuides = useMemo(() => {
-    const start = (page - 1) * PER_PAGE;
-    return renderGuides.slice(start, start + PER_PAGE);
-  }, [renderGuides, page]);
+    // 🔥 LOGIC TỰ ĐỘNG CẬP NHẬT TRẠNG THÁI NGƯỜI ĐANG CHỌN
+    if (selectedGuide) {
+        const updatedGuide = guidesAll.find(g => g.id === selectedGuide.id);
+        
+        // Nếu tìm thấy và trạng thái thay đổi (Bận) -> Bỏ chọn và thông báo
+        if (updatedGuide && !updatedGuide.available) {
+            setSelectedGuide(null);
+            // Dùng setTimeout để tránh xung đột render
+            setTimeout(() => alert(`Thông báo: HDV ${updatedGuide.name} vừa chuyển sang trạng thái BẬN. Vui lòng chọn người khác.`), 100);
+        }
+    }
+  }, [filters, guidesAll]); // Dependency quan trọng: guidesAll
+
+  const pagedGuides = useMemo(() => renderGuides.slice((page - 1) * PER_PAGE, page * PER_PAGE), [renderGuides, page]);
+  const totalPages = Math.ceil(renderGuides.length / PER_PAGE);
 
   const onPickGuide = (guide) => {
+    if (!guide.available) return;
     setSelectedGuide(guide);
-    setFilters((s) => ({
-      ...s,
-      location: s.location || guide.location,
-      language: s.language || guide.language,
-      style: s.style || guide.style,
-    }));
+    setFilters(s => ({ ...s, location: s.location || guide.location, language: s.language || guide.language, style: s.style || guide.style }));
   };
 
-  // Số lượng NGÀY
   const qty = useMemo(() => {
     if (!selectedGuide) return 0;
     return countDaysInclusive(miniForm.startDate || filters.startDate, miniForm.endDate || filters.endDate);
   }, [selectedGuide, miniForm.startDate, miniForm.endDate, filters.startDate, filters.endDate]);
 
   const money = useMemo(() => {
-    if (!selectedGuide)
-      return {
-        subtotal: 0, extraPeopleFee: 0, commission: 0, platformFee: 0, tax: 0,
-        packageFee, total: packageFee, extraPeopleCount: 0,
-      };
+    if (!selectedGuide) return { subtotal: 0, extraPeopleFee: 0, commission: 0, platformFee: 0, tax: 0, packageFee: 0, total: 0, extraPeopleCount: 0 };
     return calcTotal({
       basePrice: selectedGuide.price,
       qty,
       people: filters.people,
-      extraRatePerPerson: priceCfg.extraRatePerPerson,
-      commissionRate: priceCfg.commissionRate,
-      platformFee: priceCfg.platformFee,
-      taxRate: priceCfg.taxRate,
-      packageFee,
+      ...priceCfg,
+      packageFee: currentTour?.price || 0,
     });
-  }, [selectedGuide, qty, filters.people, priceCfg, packageFee]);
+  }, [selectedGuide, qty, filters.people, currentTour]);
 
-  // ✅ NEW: thêm vào giỏ + chuyển tới giỏ hàng
-  const addToCart = () => {
-    if (!selectedGuide) return;
+  const handleAddToCartAndCheckout = () => {
+    if (!selectedGuide) return alert("Vui lòng chọn hướng dẫn viên!");
+    
+    // 🔥 CHECK LẦN CUỐI (Realtime Check)
+    // Lấy dữ liệu mới nhất trực tiếp từ LocalStorage để đảm bảo không bị lệch
+    const currentDataStr = localStorage.getItem(LS_GUIDE_STATUS);
+    if (currentDataStr) {
+        const currentData = JSON.parse(currentDataStr);
+        const checkGuide = currentData.find(g => g.id === selectedGuide.id);
+        
+        if (checkGuide && !checkGuide.available) {
+            alert(`Rất tiếc, HDV ${selectedGuide.name} vừa chuyển sang trạng thái BẬN. Vui lòng tải lại trang.`);
+            loadGuidesData(); // Cập nhật lại giao diện
+            return;
+        }
+    }
+
+    if (!miniForm.fullName || !miniForm.phone) return alert("Vui lòng nhập họ tên và số điện thoại!");
     const start = miniForm.startDate || filters.startDate;
     const end = miniForm.endDate || filters.endDate;
-    if (!start || !end) {
-      alert("Vui lòng chọn ngày bắt đầu và kết thúc.");
-      return;
-    }
-    const key = `${tourIdFromBooking || "tour"}-${selectedGuide.id}-${Date.now()}`;
+    if (!start || !end) return alert("Vui lòng chọn ngày đi và về.");
 
-    // Item chính là gói theo HDV (đơn vị: ngày), giá = giá HDV (đã tính theo ngày)
+    const keyBase = `bk-${Date.now()}`;
+
     add({
-      key,
+      key: `${keyBase}-guide`,
       id: selectedGuide.id,
-      tourId: tourIdFromBooking || selectedGuide.id,
-      name: tourTitleFromBooking
-        ? `${tourTitleFromBooking} • HDV ${selectedGuide.name}`
-        : `HDV ${selectedGuide.name}`,
+      name: `HDV ${selectedGuide.name} (${qty} ngày)`,
       img: selectedGuide.image,
-      price: selectedGuide.price,      // đơn giá / ngày
-      qty: qty,                        // số ngày
-      meta: {
-        checkIn: start,
-        checkOut: end,
-        adults: filters.people,
-        customerName: miniForm.fullName,
-        phone: miniForm.phone,
-        email: "",                     // có thể bổ sung ở bước sau
-        note: miniForm.notes,
-        guideId: selectedGuide.id,
-        guideName: selectedGuide.name,
-        guideLocation: selectedGuide.location,
-        guideLanguage: selectedGuide.language,
-        guideStyle: selectedGuide.style,
-        priceType: "ngày",
-        // Lưu thêm các phần đã tính (để hiển thị/đối chiếu ở cart hoặc admin)
-        breakdown: {
-          subtotal: money.subtotal,
-          extraPeopleFee: money.extraPeopleFee,
-          commission: money.commission,
-          platformFee: money.platformFee,
-          tax: money.tax,
-          packageFee: money.packageFee,
-          total: money.total,
-          commissionRate: priceCfg.commissionRate,
-          taxRate: priceCfg.taxRate,
-          extraRatePerPerson: priceCfg.extraRatePerPerson,
-        },
-        packageFee, // biết là có tính phụ phí của gói tour
-        tourTitle: tourTitleFromBooking || "",
-        tourId: tourIdFromBooking || "",
-      },
+      price: selectedGuide.price, 
+      qty: qty,
+      meta: { type: 'guide', checkIn: start, checkOut: end, adults: filters.people, customerName: miniForm.fullName, phone: miniForm.phone, note: miniForm.notes, guideId: selectedGuide.id, tourId: currentTour?.id || 0 }
     });
 
-    // Thêm phụ phí gói tour như một dòng riêng (nếu muốn tách)
-    if (packageFee > 0) {
+    if (currentTour) {
       add({
-        key: `${key}-pkg`,
-        id: `pkg-${tourIdFromBooking || "0"}`,
-        name: `Phụ phí gói tour ${tourTitleFromBooking || `#${tourIdFromBooking}`}`,
-        img: "https://picsum.photos/seed/package/120/120",
-        price: packageFee,
-        qty: 1,
-        meta: {
-          type: "packageFee",
-          tourId: tourIdFromBooking || "",
-          tourTitle: tourTitleFromBooking || "",
-        },
+        key: `${keyBase}-tour`,
+        id: currentTour.id,
+        name: `Gói Tour: ${currentTour.name}`,
+        img: currentTour.images?.[0] || "https://via.placeholder.com/150",
+        price: currentTour.price,
+        qty: filters.people,
+        meta: { type: 'tour', tourId: currentTour.id, customerName: miniForm.fullName, checkIn: start }
       });
     }
-
     navigate("/gio_hang");
   };
 
-  const goConfirm = () => {
-    // Giữ lại trang confirm (nếu anh vẫn muốn flow 2 bước)
-    const query = new URLSearchParams({
-      tab: "confirm",
-      destination: filters.location || "",
-      language: filters.language || "",
-      guideStyle: filters.style || "",
-      startDate: miniForm.startDate || filters.startDate || "",
-      endDate: miniForm.endDate || filters.endDate || "",
-      people: String(filters.people || 1),
-
-      tourId: tourIdFromBooking ? String(tourIdFromBooking) : "",
-      tourTitle: tourTitleFromBooking || "",
-
-      guideId: selectedGuide ? String(selectedGuide.id) : "",
-      guideName: selectedGuide ? selectedGuide.name : "",
-      guideLocation: selectedGuide ? selectedGuide.location : "",
-      guideLanguage: selectedGuide ? selectedGuide.language : "",
-      guideStyleChosen: selectedGuide ? selectedGuide.style : "",
-      guidePrice: selectedGuide ? String(selectedGuide.price) : "",
-      guidePriceType: "ngày",
-
-      name: miniForm.fullName || "",
-      phone: miniForm.phone || "",
-      notes: miniForm.notes || "",
-
-      qty: String(qty || 0),
-      subtotal: String(money.subtotal || 0),
-      extraPeopleFee: String(money.extraPeopleFee || 0),
-      commission: String(money.commission || 0),
-      platformFee: String(money.platformFee || 0),
-      tax: String(money.tax || 0),
-      packageFee: String(money.packageFee || 0),
-      total: String(money.total || 0),
-
-      commissionRate: String(priceCfg.commissionRate),
-      taxRate: String(priceCfg.taxRate),
-      extraRatePerPerson: String(priceCfg.extraRatePerPerson),
-    }).toString();
-
-    navigate(`/tour-booking-flow?${query}`);
-  };
+  const resetFilters = () => { setFilters(s => ({ ...s, location: "", language: "", style: "" })); setPage(1); };
 
   return (
-    <section className="w-full bg-gray-50 py-10 text-black min-h-[500px]">
-      <div className="px-6 md:px-9">
-        <div className="flex items-center justify-between mb-6">
+    <section className="w-full bg-slate-50 py-10 text-slate-800 min-h-screen font-sans">
+      <div className="max-w-[1400px] mx-auto px-4 md:px-6">
+        
+        <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
           <div>
-            <h2 className="text-2xl font-bold">Chọn hướng dẫn viên theo địa phương</h2>
-            {(tourIdFromBooking || tourTitleFromBooking) && (
-              <div className="text-sm text-gray-600 mt-1">
-                Gói tour: <b>{tourTitleFromBooking || `#${tourIdFromBooking}`}</b>
-                {packageFee > 0 && <> • Phụ phí gói: <b>{vnd(packageFee)}</b></>}
-              </div>
+            <h2 className="text-3xl font-bold text-slate-800">Chọn Hướng Dẫn Viên</h2>
+            {currentTour ? (
+              <div className="flex items-center gap-2 mt-2 text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg w-fit border border-indigo-100"><MapPin size={16} /> <span className="text-sm font-medium">Đang đặt cho: <b>{currentTour.name}</b></span></div>
+            ) : (
+               <div className="flex items-center gap-2 mt-2 text-slate-500 bg-white px-3 py-1.5 rounded-lg w-fit border border-slate-200"><PlusCircle size={16} /> <span className="text-sm">Chưa chọn tour (Thuê HDV tự do)</span></div>
             )}
           </div>
-          <span className="text-sm text-gray-600">
-            Tìm thấy <b>{renderGuides.length}</b> hướng dẫn viên phù hợp
-          </span>
+          <div className="flex items-center gap-3">
+             <button onClick={loadGuidesData} className="text-xs flex items-center gap-1 bg-white px-3 py-2 rounded-lg border hover:bg-slate-50 text-slate-500 active:scale-95 transition"><RefreshCcw size={14}/> Cập nhật</button>
+             <div className="text-sm text-slate-500 bg-white px-4 py-2 rounded-full shadow-sm border border-slate-100">Tìm thấy <b>{renderGuides.length}</b> kết quả</div>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* List + filters */}
-          <div className="lg:col-span-8">
-            <div className="flex flex-wrap items-end gap-3 mb-4">
-              <NavDown
-                data={[...new Set(guidesAll.map((g) => g.location))]}
-                type="Chọn địa phương"
-                onChange={(val) => setFilters((s) => ({ ...s, location: val }))}
-              />
-              <NavDown
-                data={[...new Set(guidesAll.map((g) => g.language))]}
-                type="Chọn ngôn ngữ"
-                onChange={(val) => setFilters((s) => ({ ...s, language: val }))}
-              />
-              <NavDown
-                data={[...new Set(guidesAll.map((g) => g.style))]}
-                type="Chọn phong cách"
-                onChange={(val) => setFilters((s) => ({ ...s, style: val }))}
-              />
-
-              <button
-                onClick={resetFilters}
-                disabled={!hasFilter}
-                type="button"
-                className={`text-sm px-3 py-2 rounded-lg border ${
-                  hasFilter ? "bg-white hover:bg-gray-50" : "bg-gray-100 text-gray-400 cursor-not-allowed"
-                }`}
-                title="Xóa bộ lọc"
-              >
-                Xóa bộ lọc
-              </button>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* LEFT */}
+          <div className="lg:col-span-8 space-y-6">
+            <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-wrap items-center gap-3">
+              <NavDown data={[...new Set(guidesAll.map(g => g.location))]} type="Địa phương" onChange={v => setFilters(s => ({ ...s, location: v }))} />
+              <NavDown data={[...new Set(guidesAll.map(g => g.language))]} type="Ngôn ngữ" onChange={v => setFilters(s => ({ ...s, language: v }))} />
+              <NavDown data={[...new Set(guidesAll.map(g => g.style))]} type="Phong cách" onChange={v => setFilters(s => ({ ...s, style: v }))} />
+              <button onClick={resetFilters} className="ml-auto text-sm px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors">Xóa bộ lọc</button>
             </div>
 
-            {/* Cards + Pagination */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {pagedGuides.map((guide) => (
-                <div key={guide.id} className="group border rounded-2xl bg-white p-4 shadow-sm hover:shadow-md transition">
-                  <div className="relative flex items-center gap-3">
-                    <img
-                      src={guide.image}
-                      alt={guide.name}
-                      className="w-16 h-16 rounded-full object-cover ring-2 ring-white shadow"
-                    />
-                    <div className="flex-1">
-                      <p className="font-semibold leading-5">{guide.name}</p>
-                      <p className="text-sm text-gray-600">
-                        {guide.location} • {guide.language}
-                      </p>
-                      <p className="text-xs text-gray-500">{guide.style}</p>
-                    </div>
-                    <span
-                      className={`text-xs px-2 py-1 rounded-full ${
-                        guide.available ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"
-                      }`}
-                    >
-                      {guide.available ? "Có sẵn" : "Bận"}
-                    </span>
+                <div key={guide.id} className={`relative group bg-white rounded-2xl p-5 shadow-sm border border-slate-100 hover:shadow-md hover:-translate-y-1 transition-all duration-300 ${selectedGuide?.id === guide.id ? 'ring-2 ring-indigo-500 border-transparent' : ''} ${!guide.available ? 'opacity-60 grayscale pointer-events-none bg-slate-50' : ''}`}>
+                  
+                  {/* BADGE */}
+                  <div className={`absolute top-4 right-4 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide ${guide.available ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                    {guide.available ? "Có sẵn" : "Đang bận"}
                   </div>
 
-                  <div className="mt-4 flex items-center justify-between">
-                    <div>
-                      <div className="text-lg font-bold">{vnd(guide.price)}</div>
-                      <div className="text-xs text-gray-500">/ ngày</div>
+                  <div className="flex flex-col items-center text-center mb-4">
+                    <img src={guide.image} alt={guide.name} className={`w-20 h-20 rounded-full object-cover ring-4 shadow-sm mb-3 ${guide.available ? 'ring-slate-50' : 'ring-rose-50 grayscale'}`} onError={(e) => e.target.src = `https://ui-avatars.com/api/?name=${guide.name}&background=random`} />
+                    <h3 className="font-bold text-lg text-slate-800">{guide.name}</h3>
+                    <div className="flex items-center justify-center gap-2 text-xs text-slate-500 mt-1">
+                      <span className="flex items-center gap-1"><MapPin size={12}/> {guide.location}</span><span>•</span><span className="flex items-center gap-1"><Globe size={12}/> {guide.language}</span>
                     </div>
-                    <div className="text-sm text-amber-500">★ {guide.rating}</div>
                   </div>
-
-                  <div className="mt-4 flex gap-2">
-                    <Link to={`/guide/${guide.id}`} className="flex-1 text-center border rounded-xl py-2 hover:bg-gray-50">
-                      Xem hồ sơ
-                    </Link>
-                    <button
-                      disabled={!guide.available}
-                      onClick={() => onPickGuide(guide)}
-                      className={`flex-1 rounded-xl py-2 font-semibold ${
-                        guide.available
-                          ? "bg-sky-600 text-white hover:bg-sky-700"
-                          : "bg-gray-200 text-gray-500 cursor-not-allowed"
-                      }`}
-                    >
-                      Chọn
+                  <div className="grid grid-cols-2 gap-2 mb-4 text-xs text-slate-600 bg-slate-50 p-3 rounded-xl">
+                      <div className="flex items-center gap-1.5"><Award size={14} className="text-indigo-500"/> {guide.style}</div>
+                      <div className="flex items-center gap-1.5 justify-end"><Star size={14} className="text-amber-400 fill-amber-400"/> {guide.rating}</div>
+                  </div>
+                  <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+                    <div><span className="text-lg font-bold text-indigo-600">{vnd(guide.price)}</span><span className="text-xs text-slate-400"> /ngày</span></div>
+                    {/* NÚT KHÓA */}
+                    <button disabled={!guide.available} onClick={() => onPickGuide(guide)} className={`px-5 py-2 rounded-xl text-sm font-semibold shadow-sm transition-all flex items-center gap-2 ${guide.available ? 'bg-slate-900 text-white hover:bg-indigo-600' : 'bg-rose-50 text-rose-500 border border-rose-100 cursor-not-allowed'}`}>
+                      {selectedGuide?.id === guide.id ? <><CheckCircle size={14}/> Đã chọn</> : (guide.available ? "Chọn" : "Bận")}
                     </button>
                   </div>
                 </div>
               ))}
             </div>
-
-            {/* Pagination controls */}
-            <div className="mt-5 flex items-center justify-center gap-2">
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className={`px-3 py-1 rounded border ${page === 1 ? "text-gray-400 bg-gray-100" : "bg-white hover:bg-gray-50"}`}
-              >
-                «
-              </button>
-              {Array.from({ length: totalPages }).map((_, idx) => {
-                const p = idx + 1;
-                return (
-                  <button
-                    key={p}
-                    onClick={() => setPage(p)}
-                    className={`px-3 py-1 rounded border ${
-                      page === p ? "bg-sky-600 text-white" : "bg-white hover:bg-gray-50"
-                    }`}
-                  >
-                    {p}
-                  </button>
-                );
-              })}
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-                className={`px-3 py-1 rounded border ${page === totalPages ? "text-gray-400 bg-gray-100" : "bg-white hover:bg-gray-50"}`}
-              >
-                »
-              </button>
-            </div>
+            
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex justify-center gap-2 pt-4">
+                <button disabled={page === 1} onClick={() => setPage(p => p - 1)} className="w-10 h-10 flex items-center justify-center rounded-xl border bg-white hover:bg-slate-50 disabled:opacity-50">«</button>
+                <span className="h-10 px-4 flex items-center justify-center rounded-xl border bg-white font-semibold text-indigo-600">{page} / {totalPages}</span>
+                <button disabled={page === totalPages} onClick={() => setPage(p => p + 1)} className="w-10 h-10 flex items-center justify-center rounded-xl border bg-white hover:bg-slate-50 disabled:opacity-50">»</button>
+              </div>
+            )}
           </div>
 
-          {/* Quick form + price box */}
+          {/* RIGHT */}
           <div className="lg:col-span-4">
-            <div className="rounded-2xl bg-white p-5 shadow">
-              <h3 className="text-lg font-bold mb-3">Yêu cầu nhanh</h3>
-
-              {selectedGuide && (
-                <div className="mb-4 flex items-center gap-3 rounded-xl border p-3 bg-sky-50">
-                  <img src={selectedGuide.image} alt={selectedGuide.name} className="w-12 h-12 rounded-full object-cover" />
-                  <div className="flex-1">
-                    <p className="font-semibold leading-5">{selectedGuide.name}</p>
-                    <p className="text-xs text-gray-600">
-                      {selectedGuide.location} • {selectedGuide.language} • {selectedGuide.style}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm font-bold">{vnd(selectedGuide.price)}</div>
-                    <div className="text-[11px] text-gray-500">/ ngày</div>
-                  </div>
-                </div>
-              )}
-
-              <div className="grid gap-3">
-                <input
-                  className="border border-gray-300 rounded-xl px-3 py-2"
-                  placeholder="Họ và tên"
-                  value={miniForm.fullName}
-                  onChange={(e) => setMiniForm((s) => ({ ...s, fullName: e.target.value }))}
-                />
-                <input
-                  className="border border-gray-300 rounded-xl px-3 py-2"
-                  placeholder="Số điện thoại"
-                  value={miniForm.phone}
-                  onChange={(e) => setMiniForm((s) => ({ ...s, phone: e.target.value }))}
-                />
-
-                <div className="grid grid-cols-2 gap-3">
-                  <input
-                    type="date"
-                    className="border border-gray-300 rounded-xl px-3 py-2"
-                    value={miniForm.startDate || filters.startDate}
-                    onChange={(e) => setMiniForm((s) => ({ ...s, startDate: e.target.value }))}
-                  />
-                  <input
-                    type="date"
-                    className="border border-gray-300 rounded-xl px-3 py-2"
-                    value={miniForm.endDate || filters.endDate}
-                    onChange={(e) => setMiniForm((s) => ({ ...s, endDate: e.target.value }))}
-                  />
-                </div>
-
-                {/* KHÔNG còn input số giờ */}
-                <div>
-                  <label className="text-xs text-gray-600">Số người</label>
-                  <input
-                    type="number"
-                    min={1}
-                    className="border border-gray-300 rounded-xl px-3 py-2 w-full"
-                    value={filters.people}
-                    onChange={(e) =>
-                      setFilters((s) => ({ ...s, people: Math.max(1, Number(e.target.value) || 1) }))
-                    }
-                  />
-                </div>
-
-                <textarea
-                  rows={3}
-                  className="border border-gray-300 rounded-xl px-3 py-2 resize-none"
-                  placeholder="Ghi chú (tuỳ chọn)"
-                  value={miniForm.notes}
-                  onChange={(e) => setMiniForm((s) => ({ ...s, notes: e.target.value }))}
-                />
+            {/* ... (Phần form giữ nguyên như cũ) ... */}
+            <div className="bg-white rounded-3xl shadow-xl border border-slate-100 sticky top-6 overflow-hidden">
+              <div className="bg-slate-900 p-6 text-white">
+                <h3 className="text-xl font-bold flex items-center gap-2"><FileText className="text-indigo-400" /> Thông tin đặt tour</h3>
+                <p className="text-slate-400 text-xs mt-1">Vui lòng điền đầy đủ thông tin bên dưới</p>
               </div>
-
-              {/* Hộp chi tiết giá */}
-              <div className="rounded-xl border p-4 bg-gray-50 mt-4 space-y-1">
-                {(tourIdFromBooking || tourTitleFromBooking) && (
-                  <div>
-                    Gói tour: <b>{tourTitleFromBooking || `#${tourIdFromBooking}`}</b>
-                    {packageFee > 0 && <> • Phụ phí: <b>{vnd(packageFee)}</b></>}
-                  </div>
-                )}
-                <div>Đơn vị tính: <b>ngày</b></div>
-                <div>Số lượng (ngày): <b>{qty}</b></div>
-                <div>
-                  Số người: <b>{filters.people}</b>
-                  {money.extraPeopleCount > 0 && (
-                    <span className="text-xs text-gray-500"> (người thêm: {money.extraPeopleCount} × 10%)</span>
-                  )}
+              <div className="p-6 space-y-5">
+                <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wide ml-1">Gói Tour (Tùy chọn)</label>
+                    <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><MapPin size={18} /></div>
+                        <select className="w-full pl-10 pr-8 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all shadow-sm appearance-none cursor-pointer truncate" value={selectedTourId} onChange={(e) => setSelectedTourId(Number(e.target.value))}>
+                            <option value={0}>-- Chỉ thuê HDV (Không bao gồm tour) --</option>
+                            {TOUR_LIST.map(t => (<option key={t.id} value={t.id}>{t.name} ({vnd(t.price)})</option>))}
+                        </select>
+                    </div>
                 </div>
-                <div>Tạm tính (HDV): <b>{vnd(money.subtotal)}</b></div>
-                <div>Phụ thu người thêm (10%/người): <b>{vnd(money.extraPeopleFee)}</b></div>
-                <div>Hoa hồng công ty ({(priceCfg.commissionRate * 100).toFixed(0)}%): <b>{vnd(money.commission)}</b></div>
-                {priceCfg.platformFee > 0 && <div>Phí nền tảng: <b>{vnd(money.platformFee)}</b></div>}
-                {priceCfg.taxRate > 0 && <div>Thuế (tính trên hoa hồng): <b>{vnd(money.tax)}</b></div>}
-                <div>Phụ phí gói tour: <b>{vnd(money.packageFee)}</b></div>
-                <div className="text-lg font-bold text-blue-600">
-                  Tổng khách cần thanh toán: {vnd(money.total)}
+                <div className="space-y-4">
+                  <FormInput icon={User} label="Họ và tên" placeholder="VD: Nguyễn Văn A" value={miniForm.fullName} onChange={e => setMiniForm(s => ({ ...s, fullName: e.target.value }))} />
+                  <FormInput icon={Phone} label="Số điện thoại" placeholder="090..." value={miniForm.phone} onChange={e => setMiniForm(s => ({ ...s, phone: e.target.value }))} />
                 </div>
-              </div>
-
-              {/* NÚT HÀNH ĐỘNG */}
-              <div className="mt-4 grid grid-cols-1 gap-2">
-                <button
-                  onClick={addToCart} // ✅ NEW: đưa vào giỏ rồi đi tới /gio_hang
-                  className="w-full rounded-xl py-2.5 font-semibold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50"
-                  disabled={!selectedGuide || qty <= 0}
-                >
-                  Thêm vào giỏ & thanh toán sau
-                </button>
-
-                <button
-                  onClick={goConfirm}
-                  className="w-full rounded-xl py-2.5 font-semibold bg-sky-600 text-white hover:bg-sky-700 disabled:opacity-50"
-                  disabled={!selectedGuide}
-                >
-                  Gửi yêu cầu & tiếp tục
+                <div className="grid grid-cols-2 gap-4">
+                  <FormInput icon={Calendar} label="Ngày đi" type="date" value={miniForm.startDate || filters.startDate} onChange={e => setMiniForm(s => ({ ...s, startDate: e.target.value }))} />
+                  <FormInput icon={Calendar} label="Ngày về" type="date" value={miniForm.endDate || filters.endDate} onChange={e => setMiniForm(s => ({ ...s, endDate: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wide ml-1">Số lượng khách</label>
+                   <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><Users size={18} /></div>
+                      <input type="number" min={1} className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all" value={filters.people} onChange={e => setFilters(s => ({ ...s, people: Math.max(1, Number(e.target.value)) }))} />
+                   </div>
+                </div>
+                <div className="space-y-1.5">
+                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wide ml-1">Ghi chú</label>
+                   <textarea rows={3} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" placeholder="Yêu cầu đặc biệt..." value={miniForm.notes} onChange={e => setMiniForm(s => ({ ...s, notes: e.target.value }))} />
+                </div>
+                <div className="bg-indigo-50/60 p-5 rounded-2xl border border-indigo-100 space-y-2.5 text-sm text-slate-700">
+                  <div className="flex items-center gap-2 font-bold text-indigo-800 mb-2 border-b border-indigo-200 pb-2"><Calculator size={16} /> Chi tiết tạm tính</div>
+                  {currentTour && <div className="flex justify-between items-center"><span>Gói Tour ({filters.people} khách)</span><span className="font-bold">{vnd(money.packageFee)}</span></div>}
+                  <div className="flex justify-between items-center"><span>Thuê HDV ({qty} ngày)</span><span className="font-bold">{vnd(money.subtotal)}</span></div>
+                  <div className="flex justify-between items-center text-xs text-slate-500"><span>Phí dịch vụ & Thuế</span><span>{vnd(money.commission + money.tax)}</span></div>
+                  <div className="pt-3 mt-2 border-t border-indigo-200 flex justify-between items-center"><span className="font-bold text-slate-800 text-lg">Tổng cộng</span><span className="font-extrabold text-2xl text-indigo-600">{vnd(money.total)}</span></div>
+                </div>
+                <button onClick={handleAddToCartAndCheckout} disabled={!selectedGuide || !selectedGuide.available || qty < 1 || !miniForm.fullName || !miniForm.phone} className="w-full py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-bold text-lg shadow-lg shadow-indigo-200 hover:shadow-xl hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                  <CheckCircle size={20} /> Xác nhận & Thanh toán
                 </button>
               </div>
-
-              <p className="text-xs text-gray-500 mt-2">
-                Bằng việc gửi yêu cầu, bạn đồng ý với điều khoản & chính sách bảo mật.
-              </p>
             </div>
           </div>
         </div>
