@@ -1,4 +1,3 @@
-// src/Pages/TourManagement/GuideManagerPage.jsx
 import { useEffect, useState } from "react";
 import { 
   Plus, Edit, Trash2, Save, X, Search, MapPin, Globe, DollarSign, User, 
@@ -6,10 +5,9 @@ import {
 } from "lucide-react";
 import guidesDefault from "../../data/guides"; 
 
-// 🔥 KEY ĐỒNG BỘ TOÀN HỆ THỐNG
+// 🔥 KEY ĐỒNG BỘ (BẮT BUỘC)
 const LS_KEY = "GUIDE_DATA_FINAL_V99";
 
-// --- DANH SÁCH DỮ LIỆU MẪU ---
 const LOCATIONS = ["Đà Nẵng", "Hội An", "Huế"];
 const LANGUAGES = ["Tiếng Việt", "Tiếng Anh", "Tiếng Hàn", "Tiếng Trung", "Tiếng Nhật", "Tiếng Pháp", "Tiếng Nga", "Tiếng Đức"];
 const STYLES = ["Văn hóa", "Ẩm thực", "Phiêu lưu", "Nghỉ dưỡng", "Ảnh/Check-in", "Trải nghiệm", "Lịch sử"];
@@ -18,59 +16,49 @@ const GENDERS = ["Nam", "Nữ", "Khác"];
 export default function GuideManagerPage() {
   const [guides, setGuides] = useState([]);
   const [q, setQ] = useState("");
-  
   const [isOpen, setIsOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   
-  // Form Data Đầy Đủ
+  // Form Data
   const [form, setForm] = useState({
     id: null,
     name: "",
-    gender: "Nam",       // Mới
-    dob: "",             // Mới (Ngày sinh)
+    gender: "Nam",
+    dob: "",
     email: "",
     phone: "",
     address: "",
     location: "Đà Nẵng",
     language: "Tiếng Việt",
-    experience: 1,       // Mới (Số năm kinh nghiệm)
+    experience: 1,
     style: "Văn hóa",
     price: 500000,
     image: "",
-    bio: "",             // Mới (Giới thiệu bản thân)
+    bio: "",
     available: true,
     rating: 5
   });
 
-  // --- 1. LOAD DỮ LIỆU (Tự động thêm trường thiếu) ---
+  // 1. Load dữ liệu (Logic chuẩn)
   const loadData = () => {
     const saved = localStorage.getItem(LS_KEY);
-    let dataToLoad = [];
-
     if (saved) {
-      dataToLoad = JSON.parse(saved);
+      setGuides(JSON.parse(saved));
     } else {
-      dataToLoad = guidesDefault;
-    }
-
-    // Chuẩn hóa dữ liệu: Thêm các trường mới nếu dữ liệu cũ chưa có
-    const normalizedData = dataToLoad.map(g => ({
-        ...g,
+      // Lấy từ file guides.js và thêm các trường còn thiếu
+      const initData = guidesDefault.map(g => ({
+        ...g, 
         priceType: 'ngày',
         email: g.email || `hdv${g.id}@traveltour.com`,
         phone: g.phone || `090${Math.floor(10000000 + Math.random() * 90000000)}`,
-        address: g.address || "Đà Nẵng, Việt Nam",
-        gender: g.gender || "Nam",
-        dob: g.dob || "1995-01-01",
-        experience: g.experience || Math.floor(Math.random() * 5) + 1,
-        bio: g.bio || `Xin chào, tôi là ${g.name}. Tôi có kinh nghiệm dẫn tour tại ${g.location}.`
-    }));
-
-    setGuides(normalizedData);
-    
-    // Lưu lại bản chuẩn hóa nếu chưa có hoặc dữ liệu cũ thiếu
-    if (!saved) {
-        localStorage.setItem(LS_KEY, JSON.stringify(normalizedData));
+        address: g.address || "Chưa cập nhật",
+        gender: "Nam",
+        experience: Math.floor(Math.random() * 5) + 1,
+        dob: "1995-01-01",
+        bio: "Hướng dẫn viên nhiệt tình, am hiểu văn hóa địa phương."
+      }));
+      setGuides(initData);
+      localStorage.setItem(LS_KEY, JSON.stringify(initData));
     }
   };
 
@@ -82,7 +70,6 @@ export default function GuideManagerPage() {
     return () => window.removeEventListener("storage", handleStorage);
   }, []);
 
-  // --- XỬ LÝ ẢNH ---
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -93,22 +80,27 @@ export default function GuideManagerPage() {
     }
   };
 
-  // --- 2. LƯU DỮ LIỆU ---
+  // 2. Xử lý LƯU (Đã sửa logic ID và đồng bộ)
   const handleSave = (e) => {
     e.preventDefault();
     let newGuides = [...guides];
 
+    // Chuẩn bị dữ liệu HDV đầy đủ
     const guideData = {
         ...form,
         price: Number(form.price),
         experience: Number(form.experience),
+        // Nếu không upload ảnh thì tạo ảnh random
         image: form.image || `https://ui-avatars.com/api/?name=${form.name}&background=random&size=200`,
-        priceType: 'ngày'
+        priceType: 'ngày',
+        // Nếu thêm mới, mặc định là Rảnh (available = true)
+        available: isEditing ? form.available : true 
     };
 
     if (isEditing) {
       newGuides = newGuides.map(g => g.id === form.id ? guideData : g);
     } else {
+      // Tạo ID mới (lấy max ID hiện tại + 1)
       const newId = guides.length > 0 ? Math.max(...guides.map(g => g.id)) + 1 : 1;
       newGuides.unshift({ ...guideData, id: newId });
     }
@@ -116,15 +108,14 @@ export default function GuideManagerPage() {
     setGuides(newGuides);
     localStorage.setItem(LS_KEY, JSON.stringify(newGuides));
     
-    // 🔥 Báo hiệu cập nhật
+    // 🔥 BẮN TÍN HIỆU ĐỒNG BỘ
     window.dispatchEvent(new Event("storage"));
     
     setIsOpen(false);
     resetForm();
-    alert(isEditing ? "Cập nhật hồ sơ thành công!" : "Thêm nhân viên mới thành công!");
+    alert(isEditing ? "Đã cập nhật hồ sơ!" : "Đã thêm nhân viên mới thành công!");
   };
 
-  // --- 3. XÓA DỮ LIỆU ---
   const handleDelete = (id) => {
     if (window.confirm("Bạn chắc chắn muốn xóa hồ sơ này?")) {
       const newGuides = guides.filter(g => g.id !== id);
@@ -139,7 +130,7 @@ export default function GuideManagerPage() {
         ...guide,
         // Fallback giá trị nếu dữ liệu cũ bị thiếu
         gender: guide.gender || "Nam",
-        dob: guide.dob || "1990-01-01",
+        dob: guide.dob || "",
         experience: guide.experience || 1,
         bio: guide.bio || ""
     });
@@ -158,10 +149,7 @@ export default function GuideManagerPage() {
     });
   };
 
-  const filtered = guides.filter(g => 
-    g.name.toLowerCase().includes(q.toLowerCase()) || 
-    (g.phone && g.phone.includes(q))
-  );
+  const filtered = guides.filter(g => g.name.toLowerCase().includes(q.toLowerCase()) || (g.phone && g.phone.includes(q)));
 
   return (
     <div className="min-h-screen bg-slate-50 p-6 font-sans text-slate-800">
@@ -176,11 +164,7 @@ export default function GuideManagerPage() {
           <div className="flex gap-3 w-full md:w-auto">
              <div className="relative flex-1 md:w-80">
                 <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/>
-                <input 
-                  value={q} onChange={e => setQ(e.target.value)}
-                  placeholder="Tìm tên, số điện thoại..." 
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                />
+                <input value={q} onChange={e => setQ(e.target.value)} placeholder="Tìm tên, SĐT..." className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
              </div>
              <button onClick={openAdd} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition shadow-lg"><Plus size={20} /> Thêm nhân sự</button>
           </div>
@@ -208,8 +192,7 @@ export default function GuideManagerPage() {
                         <div>
                           <div className="font-bold text-slate-800">{g.name}</div>
                           <div className="text-xs text-slate-500 flex gap-2 mt-1">
-                              <span className="bg-slate-100 px-1.5 py-0.5 rounded text-[10px] font-medium text-slate-600">{g.gender}</span>
-                              <span className="text-slate-400">•</span>
+                              <span className="bg-slate-100 px-1.5 py-0.5 rounded text-[10px] font-medium text-slate-600">{g.gender || "Nam"}</span>
                               <span>{g.dob ? new Date(g.dob).getFullYear() : "---"}</span>
                           </div>
                         </div>
@@ -246,7 +229,7 @@ export default function GuideManagerPage() {
         </div>
       </div>
 
-      {/* MODAL FORM (FULL SIZE) */}
+      {/* MODAL FORM */}
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden animate-slide-up flex flex-col max-h-[90vh]">

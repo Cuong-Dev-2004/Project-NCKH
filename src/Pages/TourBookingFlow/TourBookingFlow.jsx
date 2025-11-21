@@ -10,8 +10,8 @@ import { vnd } from "../../utils/money";
 import { useCart } from "../../utils/cartContext.jsx";
 import { DetailPresets } from "../../data/Data";
 
-// 🔥 KEY ĐỒNG BỘ (Phải khớp với Admin)
-const LS_GUIDE_STATUS = "guides_status_manager_v2";
+// 🔥 KEY ĐỒNG BỘ TOÀN HỆ THỐNG (Phải giống bên Admin)
+const LS_GUIDE_STATUS = "GUIDE_DATA_FINAL_V99";
 
 const TOUR_LIST = Object.values(DetailPresets).map(t => ({
   id: t.id, name: t.name, price: t.price, location: t.locationText
@@ -56,45 +56,34 @@ export default function TourBookingFlow() {
   const [selectedTourId, setSelectedTourId] = useState(Number(qs.get("tourId")) || 0);
   const currentTour = useMemo(() => TOUR_LIST.find(t => t.id === selectedTourId), [selectedTourId]);
 
-  // --- LOAD DỮ LIỆU HDV ---
+  // --- 1. QUẢN LÝ DỮ LIỆU HDV ---
   const [guidesAll, setGuidesAll] = useState([]);
-
+  
+  // Hàm load dữ liệu mới nhất từ Admin
   const loadGuidesData = () => {
     const savedGuides = localStorage.getItem(LS_GUIDE_STATUS);
     let finalGuides = [];
-    
     if (savedGuides) {
       finalGuides = JSON.parse(savedGuides);
     } else {
       finalGuides = guidesDefault;
     }
-    // Chuẩn hóa dữ liệu
-    setGuidesAll(finalGuides.map(g => ({ 
-        ...g, 
-        price: Number(g.price), 
-        priceType: "ngày" 
-    })));
+    setGuidesAll(finalGuides.map(g => ({ ...g, priceType: "ngày" })));
   };
 
   useEffect(() => {
     loadGuidesData();
-    
-    // Lắng nghe sự kiện thay đổi từ Admin
-    const handleStorageChange = (e) => { 
-        if (e.key === LS_GUIDE_STATUS) loadGuidesData(); 
-    };
+    const handleStorageChange = (e) => { if (e.key === LS_GUIDE_STATUS) loadGuidesData(); };
     window.addEventListener('storage', handleStorageChange);
-    
-    // Lắng nghe khi quay lại tab này
     const handleFocus = () => loadGuidesData();
     window.addEventListener('focus', handleFocus);
-
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('focus', handleFocus);
     };
   }, []);
 
+  // --- 2. STATE FORM & FILTER ---
   const [filters, setFilters] = useState({
     location: qs.get("destination") || (currentTour?.location?.split(',')[0] || ""),
     language: qs.get("language") || "",
@@ -109,39 +98,42 @@ export default function TourBookingFlow() {
     startDate: qs.get("startDate") || "", endDate: qs.get("endDate") || "", notes: qs.get("notes") || "",
   });
 
+  // 🔥 THAY ĐỔI QUAN TRỌNG: Chỉ lưu ID, không lưu object để tránh dữ liệu cũ
+  const [selectedGuideId, setSelectedGuideId] = useState(null);
+  
+  // Tự động tìm object Guide mới nhất dựa trên ID
+  const selectedGuide = useMemo(() => 
+    guidesAll.find(g => g.id === selectedGuideId), 
+  [guidesAll, selectedGuideId]);
+
+  // Tự động bỏ chọn nếu HDV bị xóa hoặc chuyển sang Bận
+  useEffect(() => {
+    if (selectedGuide && !selectedGuide.available) {
+        setSelectedGuideId(null);
+        alert(`HDV ${selectedGuide.name} vừa chuyển sang trạng thái BẬN.`);
+    }
+  }, [guidesAll, selectedGuide]);
+
   const priceCfg = { commissionRate: 0.2, platformFee: 0, taxRate: 0, extraRatePerPerson: 0.1 };
   const [renderGuides, setRenderGuides] = useState([]);
-  const [selectedGuide, setSelectedGuide] = useState(null);
   const [page, setPage] = useState(1);
   const PER_PAGE = 6;
 
-  // Effect lọc danh sách khi filters HOẶC dữ liệu guidesAll thay đổi
+  // Lọc danh sách HDV
   useEffect(() => {
     let filtered = guidesAll;
     if (filters.location) filtered = filtered.filter((g) => g.location.includes(filters.location));
     if (filters.language) filtered = filtered.filter((g) => g.language === filters.language);
     if (filters.style) filtered = filtered.filter((g) => g.style === filters.style);
     setRenderGuides(filtered);
-
-    // LOGIC TỰ ĐỘNG CẬP NHẬT TRẠNG THÁI NGƯỜI ĐANG CHỌN
-    if (selectedGuide) {
-        const updatedGuide = guidesAll.find(g => g.id === selectedGuide.id);
-        
-        // Nếu tìm thấy và trạng thái thay đổi (Bận) -> Bỏ chọn và thông báo
-        if (updatedGuide && !updatedGuide.available) {
-            setSelectedGuide(null);
-            // Dùng setTimeout để tránh xung đột render
-            setTimeout(() => alert(`Thông báo: HDV ${updatedGuide.name} vừa chuyển sang trạng thái BẬN. Vui lòng chọn người khác.`), 100);
-        }
-    }
-  }, [filters, guidesAll]); // Dependency quan trọng: guidesAll
+  }, [filters, guidesAll]);
 
   const pagedGuides = useMemo(() => renderGuides.slice((page - 1) * PER_PAGE, page * PER_PAGE), [renderGuides, page]);
   const totalPages = Math.ceil(renderGuides.length / PER_PAGE);
 
   const onPickGuide = (guide) => {
     if (!guide.available) return;
-    setSelectedGuide(guide);
+    setSelectedGuideId(guide.id); // Chỉ lưu ID
     setFilters(s => ({ ...s, location: s.location || guide.location, language: s.language || guide.language, style: s.style || guide.style }));
   };
 
@@ -163,28 +155,17 @@ export default function TourBookingFlow() {
 
   const handleAddToCartAndCheckout = () => {
     if (!selectedGuide) return alert("Vui lòng chọn hướng dẫn viên!");
-    
-    // 🔥 CHECK LẦN CUỐI (Realtime Check)
-    // Lấy dữ liệu mới nhất trực tiếp từ LocalStorage để đảm bảo không bị lệch
-    const currentDataStr = localStorage.getItem(LS_GUIDE_STATUS);
-    if (currentDataStr) {
-        const currentData = JSON.parse(currentDataStr);
-        const checkGuide = currentData.find(g => g.id === selectedGuide.id);
-        
-        if (checkGuide && !checkGuide.available) {
-            alert(`Rất tiếc, HDV ${selectedGuide.name} vừa chuyển sang trạng thái BẬN. Vui lòng tải lại trang.`);
-            loadGuidesData(); // Cập nhật lại giao diện
-            return;
-        }
+    if (!selectedGuide.available) {
+         alert(`Rất tiếc, HDV ${selectedGuide.name} hiện đang BẬN. Vui lòng chọn người khác.`);
+         loadGuidesData();
+         return;
     }
-
     if (!miniForm.fullName || !miniForm.phone) return alert("Vui lòng nhập họ tên và số điện thoại!");
     const start = miniForm.startDate || filters.startDate;
     const end = miniForm.endDate || filters.endDate;
     if (!start || !end) return alert("Vui lòng chọn ngày đi và về.");
 
     const keyBase = `bk-${Date.now()}`;
-
     add({
       key: `${keyBase}-guide`,
       id: selectedGuide.id,
@@ -194,7 +175,6 @@ export default function TourBookingFlow() {
       qty: qty,
       meta: { type: 'guide', checkIn: start, checkOut: end, adults: filters.people, customerName: miniForm.fullName, phone: miniForm.phone, note: miniForm.notes, guideId: selectedGuide.id, tourId: currentTour?.id || 0 }
     });
-
     if (currentTour) {
       add({
         key: `${keyBase}-tour`,
@@ -225,13 +205,13 @@ export default function TourBookingFlow() {
             )}
           </div>
           <div className="flex items-center gap-3">
-             <button onClick={loadGuidesData} className="text-xs flex items-center gap-1 bg-white px-3 py-2 rounded-lg border hover:bg-slate-50 text-slate-500 active:scale-95 transition"><RefreshCcw size={14}/> Cập nhật</button>
+             <button onClick={loadGuidesData} className="text-xs flex items-center gap-1 bg-white px-3 py-2 rounded-lg border hover:bg-slate-50 text-slate-500 active:scale-95 transition"><RefreshCcw size={14}/> Cập nhật dữ liệu</button>
              <div className="text-sm text-slate-500 bg-white px-4 py-2 rounded-full shadow-sm border border-slate-100">Tìm thấy <b>{renderGuides.length}</b> kết quả</div>
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* LEFT */}
+          {/* LEFT COLUMN */}
           <div className="lg:col-span-8 space-y-6">
             <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-wrap items-center gap-3">
               <NavDown data={[...new Set(guidesAll.map(g => g.location))]} type="Địa phương" onChange={v => setFilters(s => ({ ...s, location: v }))} />
@@ -242,13 +222,10 @@ export default function TourBookingFlow() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {pagedGuides.map((guide) => (
-                <div key={guide.id} className={`relative group bg-white rounded-2xl p-5 shadow-sm border border-slate-100 hover:shadow-md hover:-translate-y-1 transition-all duration-300 ${selectedGuide?.id === guide.id ? 'ring-2 ring-indigo-500 border-transparent' : ''} ${!guide.available ? 'opacity-60 grayscale pointer-events-none bg-slate-50' : ''}`}>
-                  
-                  {/* BADGE */}
+                <div key={guide.id} className={`relative group bg-white rounded-2xl p-5 shadow-sm border border-slate-100 hover:shadow-md hover:-translate-y-1 transition-all duration-300 ${selectedGuideId === guide.id ? 'ring-2 ring-indigo-500 border-transparent' : ''} ${!guide.available ? 'opacity-60 grayscale pointer-events-none bg-slate-50' : ''}`}>
                   <div className={`absolute top-4 right-4 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide ${guide.available ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
                     {guide.available ? "Có sẵn" : "Đang bận"}
                   </div>
-
                   <div className="flex flex-col items-center text-center mb-4">
                     <img src={guide.image} alt={guide.name} className={`w-20 h-20 rounded-full object-cover ring-4 shadow-sm mb-3 ${guide.available ? 'ring-slate-50' : 'ring-rose-50 grayscale'}`} onError={(e) => e.target.src = `https://ui-avatars.com/api/?name=${guide.name}&background=random`} />
                     <h3 className="font-bold text-lg text-slate-800">{guide.name}</h3>
@@ -262,16 +239,14 @@ export default function TourBookingFlow() {
                   </div>
                   <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
                     <div><span className="text-lg font-bold text-indigo-600">{vnd(guide.price)}</span><span className="text-xs text-slate-400"> /ngày</span></div>
-                    {/* NÚT KHÓA */}
                     <button disabled={!guide.available} onClick={() => onPickGuide(guide)} className={`px-5 py-2 rounded-xl text-sm font-semibold shadow-sm transition-all flex items-center gap-2 ${guide.available ? 'bg-slate-900 text-white hover:bg-indigo-600' : 'bg-rose-50 text-rose-500 border border-rose-100 cursor-not-allowed'}`}>
-                      {selectedGuide?.id === guide.id ? <><CheckCircle size={14}/> Đã chọn</> : (guide.available ? "Chọn" : "Bận")}
+                      {selectedGuideId === guide.id ? <><CheckCircle size={14}/> Đã chọn</> : (guide.available ? "Chọn" : "Bận")}
                     </button>
                   </div>
                 </div>
               ))}
             </div>
-            
-            {/* Pagination */}
+
             {totalPages > 1 && (
               <div className="flex justify-center gap-2 pt-4">
                 <button disabled={page === 1} onClick={() => setPage(p => p - 1)} className="w-10 h-10 flex items-center justify-center rounded-xl border bg-white hover:bg-slate-50 disabled:opacity-50">«</button>
@@ -281,9 +256,8 @@ export default function TourBookingFlow() {
             )}
           </div>
 
-          {/* RIGHT */}
+          {/* RIGHT COLUMN */}
           <div className="lg:col-span-4">
-            {/* ... (Phần form giữ nguyên như cũ) ... */}
             <div className="bg-white rounded-3xl shadow-xl border border-slate-100 sticky top-6 overflow-hidden">
               <div className="bg-slate-900 p-6 text-white">
                 <h3 className="text-xl font-bold flex items-center gap-2"><FileText className="text-indigo-400" /> Thông tin đặt tour</h3>

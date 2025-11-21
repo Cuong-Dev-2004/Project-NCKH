@@ -1,369 +1,308 @@
+// src/Pages/Booking/Booking.jsx
 import { useEffect, useMemo, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
 import { 
-  User, Phone, Calendar, Users, FileText, 
-  MapPin, Globe, Award, CheckCircle, Star 
+  Search, Filter, MoreVertical, Edit3, Trash2, X, CheckCircle, 
+  Clock, User, MapPin, Phone, Mail, Calendar, FileText, 
+  ArrowRight, AlertCircle
 } from "lucide-react";
-import NavDown from "../../components/Ui/NavDownTourBookingFlow";
-import guidesAllRaw from "../../data/guides";
-import { TOURS } from "../../data/tours";
-import { vnd } from "../../utils/money";
-import { useCart } from "../../utils/cartContext.jsx";
+import BookingActions from "../../components/Booking/BookingActions"; // Import component nút bấm
+import DetailPresets from "../../data/Data"; // Dữ liệu Tour để lấy tên/giá gốc nếu cần
 
-function countDaysInclusive(startDate, endDate) {
-  if (!startDate) return 1;
-  const s = new Date(startDate);
-  const e = new Date(endDate || startDate);
-  const ONE = 24 * 60 * 60 * 1000;
-  return Math.max(1, Math.round((e - s) / ONE) + 1);
-}
+const LS_KEY = "bookings_admin_demo_v1";
+const STATUS_CONFIG = {
+  pending: { label: "Chờ xử lý", color: "bg-amber-50 text-amber-700 border-amber-100", icon: Clock },
+  confirmed: { label: "Đã xác nhận", color: "bg-blue-50 text-blue-700 border-blue-100", icon: CheckCircle },
+  completed: { label: "Hoàn thành", color: "bg-emerald-50 text-emerald-700 border-emerald-100", icon: CheckCircle },
+  cancelled: { label: "Đã hủy", color: "bg-rose-50 text-rose-700 border-rose-100", icon: X },
+};
 
-function calcTotal({ basePrice, qty, people = 1, extraRatePerPerson = 0.1, commissionRate = 0.2, platformFee = 0, taxRate = 0, packageFee = 0 }) {
-  const subtotal = (Number(basePrice) || 0) * (Number(qty) || 0);
-  const extraPeopleCount = Math.max(0, Number(people || 1) - 1);
-  const extraPeopleFee = subtotal * (Number(extraRatePerPerson) || 0) * extraPeopleCount;
-  const commission = (subtotal + extraPeopleFee) * (Number(commissionRate) || 0);
-  const pf = Number(platformFee) || 0;
-  const tax = commission * (Number(taxRate) || 0);
-  const totalPackageFee = (Number(packageFee) || 0) * people; 
-  const total = subtotal + extraPeopleFee + commission + pf + tax + totalPackageFee;
-  return { subtotal, extraPeopleFee, commission, platformFee: pf, tax, packageFee: totalPackageFee, total, extraPeopleCount };
-}
+const vnd = (n) => (Number(n || 0)).toLocaleString("vi-VN") + "đ";
 
-// Component Input dùng chung để giao diện đẹp hơn
-const FormInput = ({ icon: Icon, label, ...props }) => (
-  <div className="space-y-1.5">
-    <label className="text-xs font-bold text-slate-500 uppercase tracking-wide ml-1">{label}</label>
-    <div className="relative">
-      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-        <Icon size={18} />
-      </div>
-      <input
-        {...props}
-        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all shadow-sm"
-      />
-    </div>
-  </div>
-);
+export default function BookingPage() {
+  const [data, setData] = useState([]);
+  const [q, setQ] = useState("");
+  const [selected, setSelected] = useState(null);
+  const [toast, setToast] = useState({ open: false, type: "info", message: "" });
 
-export default function TourBookingFlow() {
-  const navigate = useNavigate();
-  const locationHook = useLocation();
-  const { add } = useCart();
-  const qs = useMemo(() => new URLSearchParams(locationHook.search), [locationHook.search]);
-
-  const tourIdParam = Number(qs.get("tourId") || 0);
-  const currentTour = useMemo(() => TOURS.find(t => t.id === tourIdParam), [tourIdParam]);
-
-  const [filters, setFilters] = useState({
-    location: qs.get("destination") || (currentTour?.location || ""),
-    language: qs.get("language") || "",
-    style: qs.get("guideStyle") || "",
-    startDate: qs.get("startDate") || "",
-    endDate: qs.get("endDate") || "",
-    people: Number(qs.get("people") || 1),
-  });
-
-  const [miniForm, setMiniForm] = useState({
-    fullName: qs.get("name") || "",
-    phone: qs.get("phone") || "",
-    startDate: qs.get("startDate") || "",
-    endDate: qs.get("endDate") || "",
-    notes: qs.get("notes") || "",
-  });
-
-  const priceCfg = { commissionRate: 0.2, platformFee: 0, taxRate: 0, extraRatePerPerson: 0.1 };
-
-  const guidesAll = useMemo(() => guidesAllRaw.map(g => ({ ...g, priceType: "ngày" })), []);
-  const [renderGuides, setRenderGuides] = useState(guidesAll);
-  const [selectedGuide, setSelectedGuide] = useState(null);
-  const [page, setPage] = useState(1);
-  const PER_PAGE = 6;
-
-  useEffect(() => {
-    let filtered = guidesAll;
-    if (filters.location) filtered = filtered.filter((g) => g.location === filters.location);
-    if (filters.language) filtered = filtered.filter((g) => g.language === filters.language);
-    if (filters.style) filtered = filtered.filter((g) => g.style === filters.style);
-    setRenderGuides(filtered);
-    setPage(1);
-  }, [filters, guidesAll]);
-
-  const pagedGuides = useMemo(() => renderGuides.slice((page - 1) * PER_PAGE, page * PER_PAGE), [renderGuides, page]);
-  const totalPages = Math.ceil(renderGuides.length / PER_PAGE);
-
-  const onPickGuide = (guide) => {
-    setSelectedGuide(guide);
-    setFilters(s => ({ ...s, location: s.location || guide.location, language: s.language || guide.language, style: s.style || guide.style }));
-  };
-
-  const qty = useMemo(() => {
-    if (!selectedGuide) return 0;
-    return countDaysInclusive(miniForm.startDate || filters.startDate, miniForm.endDate || filters.endDate);
-  }, [selectedGuide, miniForm.startDate, miniForm.endDate, filters.startDate, filters.endDate]);
-
-  const money = useMemo(() => {
-    if (!selectedGuide) return { subtotal: 0, extraPeopleFee: 0, commission: 0, platformFee: 0, tax: 0, packageFee: 0, total: 0, extraPeopleCount: 0 };
-    return calcTotal({
-      basePrice: selectedGuide.price,
-      qty,
-      people: filters.people,
-      ...priceCfg,
-      packageFee: currentTour?.price || 0,
-    });
-  }, [selectedGuide, qty, filters.people, currentTour]);
-
-  const handleAddToCartAndCheckout = () => {
-    if (!selectedGuide) return alert("Vui lòng chọn hướng dẫn viên!");
-    if (!miniForm.fullName || !miniForm.phone) return alert("Vui lòng nhập họ tên và số điện thoại!");
-    const start = miniForm.startDate || filters.startDate;
-    const end = miniForm.endDate || filters.endDate;
-    if (!start || !end) return alert("Vui lòng chọn ngày đi và về.");
-
-    const keyBase = `bk-${Date.now()}`;
-
-    add({
-      key: `${keyBase}-guide`,
-      id: selectedGuide.id,
-      name: `HDV ${selectedGuide.name} (${qty} ngày)`,
-      img: selectedGuide.image,
-      price: selectedGuide.price, 
-      qty: qty,
-      meta: {
-        type: 'guide',
-        checkIn: start,
-        checkOut: end,
-        adults: filters.people,
-        customerName: miniForm.fullName,
-        phone: miniForm.phone,
-        note: miniForm.notes,
-        guideId: selectedGuide.id,
-        tourId: currentTour?.id || 0,
-      }
-    });
-
-    if (currentTour) {
-      add({
-        key: `${keyBase}-tour`,
-        id: currentTour.id,
-        name: `Gói Tour: ${currentTour.name}`,
-        img: currentTour.img,
-        price: currentTour.price,
-        qty: filters.people,
-        meta: {
-          type: 'tour',
-          tourId: currentTour.id,
-          customerName: miniForm.fullName,
-          checkIn: start
-        }
-      });
+  // --- LOAD DỮ LIỆU ---
+  const reload = () => {
+    const raw = localStorage.getItem(LS_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    // Sắp xếp mới nhất lên đầu
+    arr.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    setData(arr);
+    
+    // Cập nhật lại item đang chọn nếu dữ liệu thay đổi
+    if (selected) {
+      const found = arr.find((x) => x._id === selected._id);
+      setSelected(found || null);
     }
-
-    navigate("/gio_hang");
   };
 
-  const resetFilters = () => { setFilters(s => ({ ...s, location: "", language: "", style: "" })); setPage(1); };
+  useEffect(() => { reload(); }, []);
+
+  // --- FILTER ---
+  const filtered = useMemo(() => {
+    if (!q) return data;
+    const s = q.toLowerCase();
+    return data.filter(
+      (b) =>
+        b.code?.toLowerCase().includes(s) ||
+        b.customerName?.toLowerCase().includes(s) ||
+        b.phone?.includes(q)
+    );
+  }, [data, q]);
+
+  // --- ACTIONS (Dùng chung cho BookingActions) ---
+  const notify = (type, message) => {
+    setToast({ open: true, type, message });
+    setTimeout(() => setToast((t) => ({ ...t, open: false })), 3000);
+  };
+
+  const saveAll = (arr) => {
+    localStorage.setItem(LS_KEY, JSON.stringify(arr));
+    setData(arr);
+  };
+
+  const handleChangeStatus = (booking, status) => {
+    const arr = [...data];
+    const idx = arr.findIndex(x => x._id === booking._id);
+    if (idx >= 0) {
+      arr[idx] = { ...arr[idx], status, updatedAt: new Date().toISOString() };
+      saveAll(arr);
+      if (selected?._id === booking._id) setSelected(arr[idx]);
+      notify("success", `Đã đổi trạng thái sang: ${STATUS_CONFIG[status].label}`);
+    }
+  };
+
+  const handleRemove = (booking) => {
+    if (!window.confirm(`Xoá đơn ${booking.code}?`)) return;
+    const arr = data.filter(x => x._id !== booking._id);
+    saveAll(arr);
+    if (selected?._id === booking._id) setSelected(null);
+    notify("warn", "Đã xóa đơn hàng.");
+  };
+
+  // (Tạm thời chưa làm chức năng sửa chi tiết, chỉ làm nút Sửa placeholder)
+  const handleEdit = (booking) => {
+    alert(`Tính năng sửa cho đơn ${booking.code} đang phát triển!`);
+  };
+
+  // --- UI COMPONENTS ---
+  const Avatar = ({ name }) => (
+    <div className="w-9 h-9 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-sm font-bold shrink-0 border border-indigo-200">
+      {name ? name.charAt(0).toUpperCase() : "K"}
+    </div>
+  );
+
+  const StatusBadge = ({ status }) => {
+    const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
+    const Icon = cfg.icon;
+    return (
+      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${cfg.color}`}>
+        <Icon size={12} /> {cfg.label}
+      </span>
+    );
+  };
 
   return (
-    <section className="w-full bg-slate-50 py-10 text-slate-800 min-h-screen font-sans">
-      <div className="max-w-[1400px] mx-auto px-4 md:px-6">
+    <div className="p-6 bg-slate-50 min-h-screen font-sans text-slate-800">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr,380px] gap-6 items-start max-w-[1600px] mx-auto">
         
-        {/* Page Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
-          <div>
-            <h2 className="text-3xl font-bold text-slate-800">Chọn Hướng Dẫn Viên</h2>
-            {currentTour && (
-              <div className="flex items-center gap-2 mt-2 text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg w-fit">
-                <MapPin size={16} />
-                <span className="text-sm font-medium">Đang đặt cho: <b>{currentTour.name}</b></span>
+        {/* --- CỘT TRÁI: DANH SÁCH --- */}
+        <div className="space-y-4">
+          {/* Header & Search */}
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-4 bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+            <div className="relative w-full sm:w-96">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                <Search size={18} />
               </div>
-            )}
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Tìm mã đơn, tên khách, SĐT..."
+                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+              />
+            </div>
+            <div className="text-sm text-slate-500">
+              <b>{filtered.length}</b> đơn hàng
+            </div>
           </div>
-          <div className="text-sm text-slate-500 bg-white px-4 py-2 rounded-full shadow-sm border border-slate-100">
-            Tìm thấy <b>{renderGuides.length}</b> kết quả phù hợp
+
+          {/* Table */}
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden min-h-[600px]">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-slate-50 text-slate-600 font-medium border-b border-slate-200">
+                  <tr>
+                    <th className="p-4">Khách hàng</th>
+                    <th className="p-4">Tour / Dịch vụ</th>
+                    <th className="p-4 text-right">Tổng tiền</th>
+                    <th className="p-4 text-center">Trạng thái</th>
+                    <th className="p-4 w-10"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filtered.length === 0 ? (
+                    <tr><td colSpan={5} className="p-10 text-center text-slate-400">Không tìm thấy đơn hàng nào</td></tr>
+                  ) : (
+                    filtered.map((b) => (
+                      <tr
+                        key={b._id}
+                        onClick={() => setSelected(b)}
+                        className={`group cursor-pointer transition-colors ${selected?._id === b._id ? "bg-indigo-50/60" : "hover:bg-slate-50"}`}
+                      >
+                        <td className="p-4">
+                          <div className="flex items-center gap-3">
+                            <Avatar name={b.customerName} />
+                            <div>
+                              <div className="font-bold text-slate-800">{b.customerName}</div>
+                              <div className="text-xs text-slate-500 font-mono">{b.code}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-4">
+                          <div className="font-medium text-slate-700 mb-0.5 line-clamp-1">{b.tourName}</div>
+                          <div className="flex items-center gap-2 text-xs text-slate-500">
+                            <Calendar size={12} /> {b.checkinDate}
+                          </div>
+                        </td>
+                        <td className="p-4 text-right font-bold text-indigo-600">{vnd(b.total)}</td>
+                        <td className="p-4 text-center"><StatusBadge status={b.status} /></td>
+                        <td className="p-4 text-slate-400">
+                          <ArrowRight size={16} className={`transition-transform ${selected?._id === b._id ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-2 group-hover:opacity-50'}`} />
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          
-          {/* LEFT COLUMN: Filters & List */}
-          <div className="lg:col-span-8 space-y-6">
-            
-            {/* Filter Bar */}
-            <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-wrap items-center gap-3">
-              <NavDown data={[...new Set(guidesAll.map(g => g.location))]} type="Địa phương" onChange={v => setFilters(s => ({ ...s, location: v }))} />
-              <NavDown data={[...new Set(guidesAll.map(g => g.language))]} type="Ngôn ngữ" onChange={v => setFilters(s => ({ ...s, language: v }))} />
-              <NavDown data={[...new Set(guidesAll.map(g => g.style))]} type="Phong cách" onChange={v => setFilters(s => ({ ...s, style: v }))} />
-              <button onClick={resetFilters} className="ml-auto text-sm px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors">
-                Xóa bộ lọc
-              </button>
-            </div>
-
-            {/* Guide Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {pagedGuides.map((guide) => (
-                <div key={guide.id} className={`relative group bg-white rounded-2xl p-5 shadow-sm border border-slate-100 hover:shadow-md hover:-translate-y-1 transition-all duration-300 ${selectedGuide?.id === guide.id ? 'ring-2 ring-indigo-500 border-transparent' : ''}`}>
-                  
-                  {/* Badge */}
-                  <div className={`absolute top-4 right-4 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide ${guide.available ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
-                    {guide.available ? "Có sẵn" : "Bận"}
+        {/* --- CỘT PHẢI: CHI TIẾT (QUAN TRỌNG: HIỂN THỊ THÔNG TIN KHÁCH) --- */}
+        <div className="sticky top-6">
+          {selected ? (
+            <div className="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden animate-fade-in-right">
+              {/* Header Panel */}
+              <div className="p-6 bg-slate-900 text-white">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-slate-400 text-[10px] uppercase font-bold tracking-widest mb-1">Chi tiết đơn hàng</p>
+                    <h2 className="text-2xl font-bold font-mono">{selected.code}</h2>
                   </div>
-
-                  {/* Info */}
-                  <div className="flex flex-col items-center text-center mb-4">
-                    <img src={guide.image} alt={guide.name} className="w-20 h-20 rounded-full object-cover ring-4 ring-slate-50 shadow-sm mb-3" />
-                    <h3 className="font-bold text-lg text-slate-800">{guide.name}</h3>
-                    <div className="flex items-center justify-center gap-2 text-xs text-slate-500 mt-1">
-                      <span className="flex items-center gap-1"><MapPin size={12}/> {guide.location}</span>
-                      <span>•</span>
-                      <span className="flex items-center gap-1"><Globe size={12}/> {guide.language}</span>
-                    </div>
-                  </div>
-
-                  {/* Specs */}
-                  <div className="grid grid-cols-2 gap-2 mb-4 text-xs text-slate-600 bg-slate-50 p-3 rounded-xl">
-                     <div className="flex items-center gap-1.5"><Award size={14} className="text-indigo-500"/> {guide.style}</div>
-                     <div className="flex items-center gap-1.5 justify-end"><Star size={14} className="text-amber-400 fill-amber-400"/> {guide.rating}</div>
-                  </div>
-
-                  {/* Price & Action */}
-                  <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
-                    <div>
-                      <span className="text-lg font-bold text-indigo-600">{vnd(guide.price)}</span>
-                      <span className="text-xs text-slate-400"> /ngày</span>
-                    </div>
-                    <button 
-                      disabled={!guide.available} 
-                      onClick={() => onPickGuide(guide)} 
-                      className={`px-5 py-2 rounded-xl text-sm font-semibold shadow-sm transition-all ${guide.available ? 'bg-slate-900 text-white hover:bg-indigo-600' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
-                    >
-                      {selectedGuide?.id === guide.id ? "Đã chọn" : "Chọn"}
-                    </button>
-                  </div>
+                  <button className="p-2 bg-white/10 rounded-lg hover:bg-white/20 transition" onClick={() => setSelected(null)}>
+                    <X size={18} />
+                  </button>
                 </div>
-              ))}
-            </div>
-
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="flex justify-center gap-2 pt-4">
-                <button disabled={page === 1} onClick={() => setPage(p => p - 1)} className="w-10 h-10 flex items-center justify-center rounded-xl border bg-white hover:bg-slate-50 disabled:opacity-50">«</button>
-                <span className="h-10 px-4 flex items-center justify-center rounded-xl border bg-white font-semibold text-indigo-600">{page} / {totalPages}</span>
-                <button disabled={page === totalPages} onClick={() => setPage(p => p + 1)} className="w-10 h-10 flex items-center justify-center rounded-xl border bg-white hover:bg-slate-50 disabled:opacity-50">»</button>
-              </div>
-            )}
-          </div>
-
-          {/* RIGHT COLUMN: Booking Form */}
-          <div className="lg:col-span-4">
-            <div className="bg-white rounded-3xl shadow-xl border border-slate-100 sticky top-6 overflow-hidden">
-              
-              {/* Form Header */}
-              <div className="bg-slate-900 p-6 text-white">
-                <h3 className="text-xl font-bold flex items-center gap-2">
-                  <FileText className="text-indigo-400" /> Thông tin đặt tour
-                </h3>
-                <p className="text-slate-400 text-xs mt-1">Vui lòng điền đầy đủ thông tin bên dưới</p>
-              </div>
-
-              <div className="p-6 space-y-5">
-                {/* Customer Info */}
-                <div className="space-y-4">
-                  <FormInput 
-                    icon={User} label="Họ và tên" 
-                    placeholder="VD: Nguyễn Văn A" 
-                    value={miniForm.fullName} 
-                    onChange={e => setMiniForm(s => ({ ...s, fullName: e.target.value }))} 
-                  />
-                  <FormInput 
-                    icon={Phone} label="Số điện thoại" 
-                    placeholder="090..." 
-                    value={miniForm.phone} 
-                    onChange={e => setMiniForm(s => ({ ...s, phone: e.target.value }))} 
-                  />
-                </div>
-
-                {/* Dates & People */}
-                <div className="grid grid-cols-2 gap-4">
-                  <FormInput 
-                    icon={Calendar} label="Ngày đi" type="date"
-                    value={miniForm.startDate || filters.startDate} 
-                    onChange={e => setMiniForm(s => ({ ...s, startDate: e.target.value }))} 
-                  />
-                  <FormInput 
-                    icon={Calendar} label="Ngày về" type="date"
-                    value={miniForm.endDate || filters.endDate} 
-                    onChange={e => setMiniForm(s => ({ ...s, endDate: e.target.value }))} 
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wide ml-1">Số lượng khách</label>
-                   <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><Users size={18} /></div>
-                      <input 
-                        type="number" min={1} 
-                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-                        value={filters.people} 
-                        onChange={e => setFilters(s => ({ ...s, people: Math.max(1, Number(e.target.value)) }))} 
-                      />
+                <div className="mt-4 flex items-center gap-3">
+                   <div className={`px-3 py-1 rounded-md text-xs font-bold uppercase tracking-wide ${STATUS_CONFIG[selected.status]?.color.replace('border', '')} bg-white text-slate-800`}>
+                      {STATUS_CONFIG[selected.status]?.label}
                    </div>
+                   <span className="text-xs text-slate-400">Ngày đặt: {selected.createdAt?.slice(0,10)}</span>
                 </div>
+              </div>
 
-                <div className="space-y-1.5">
-                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wide ml-1">Ghi chú</label>
-                   <textarea 
-                      rows={3} 
-                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
-                      placeholder="Yêu cầu đặc biệt..." 
-                      value={miniForm.notes} 
-                      onChange={e => setMiniForm(s => ({ ...s, notes: e.target.value }))} 
-                   />
-                </div>
-
-                {/* Cost Summary */}
-                <div className="bg-indigo-50/60 p-5 rounded-2xl border border-indigo-100 space-y-2.5 text-sm text-slate-700">
-                  {currentTour && (
-                    <div className="flex justify-between items-center pb-2 border-b border-indigo-100">
-                      <span>Gói Tour ({filters.people} khách)</span>
-                      <span className="font-bold">{vnd(money.packageFee)}</span>
+              <div className="p-6 space-y-6">
+                {/* THÔNG TIN KHÁCH HÀNG (Lấy từ form thanh toán) */}
+                <div>
+                  <h4 className="text-xs font-bold text-slate-400 uppercase mb-3 flex items-center gap-2">
+                    <User size={14} /> Khách hàng
+                  </h4>
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                    <div className="font-bold text-slate-800 text-lg mb-1">{selected.customerName}</div>
+                    <div className="space-y-2 mt-3">
+                        <div className="flex items-center gap-3 text-sm text-slate-600">
+                           <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm border border-slate-100"><Phone size={14} className="text-emerald-500"/></div>
+                           <span className="font-medium">{selected.phone || "Chưa có SĐT"}</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-sm text-slate-600">
+                           <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm border border-slate-100"><Mail size={14} className="text-sky-500"/></div>
+                           <span className="truncate">{selected.email || "Chưa có Email"}</span>
+                        </div>
                     </div>
-                  )}
+                  </div>
+                </div>
+
+                {/* THÔNG TIN TOUR */}
+                <div>
+                  <h4 className="text-xs font-bold text-slate-400 uppercase mb-3 flex items-center gap-2">
+                    <MapPin size={14} /> Dịch vụ
+                  </h4>
+                  <div className="space-y-3 text-sm border-l-2 border-slate-100 pl-4">
+                    <div>
+                      <div className="text-slate-500 text-xs">Tên dịch vụ</div>
+                      <div className="font-bold text-slate-800">{selected.tourName}</div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <div className="text-slate-500 text-xs">Ngày đi</div>
+                            <div className="font-medium">{selected.checkinDate}</div>
+                        </div>
+                        <div>
+                            <div className="text-slate-500 text-xs">Thời lượng</div>
+                            <div className="font-medium">{selected.days} ngày</div>
+                        </div>
+                    </div>
+                    <div>
+                        <div className="text-slate-500 text-xs">Số lượng khách</div>
+                        <div className="font-medium">{selected.people} người</div>
+                    </div>
+                    {selected.note && (
+                       <div className="pt-2">
+                          <div className="text-slate-500 text-xs mb-1">Ghi chú từ khách:</div>
+                          <div className="text-slate-700 italic bg-yellow-50 p-2 rounded border border-yellow-100 text-xs">{selected.note}</div>
+                       </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* TỔNG TIỀN */}
+                <div className="pt-4 border-t border-dashed border-slate-200">
                   <div className="flex justify-between items-center">
-                    <span>Thuê HDV ({qty} ngày)</span>
-                    <span className="font-bold">{vnd(money.subtotal)}</span>
-                  </div>
-                  {money.extraPeopleFee > 0 && (
-                    <div className="flex justify-between items-center text-xs text-slate-500">
-                      <span>Phụ thu khách thêm</span>
-                      <span>{vnd(money.extraPeopleFee)}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between items-center text-xs text-slate-500">
-                    <span>Phí dịch vụ & Thuế</span>
-                    <span>{vnd(money.commission + money.tax)}</span>
-                  </div>
-                  
-                  <div className="pt-3 mt-2 border-t border-indigo-200 flex justify-between items-center">
-                    <span className="font-bold text-slate-800 text-lg">Tổng cộng</span>
-                    <span className="font-extrabold text-2xl text-indigo-600">{vnd(money.total)}</span>
+                    <span className="font-bold text-slate-700">Tổng thanh toán</span>
+                    <span className="text-2xl font-extrabold text-indigo-600">{vnd(selected.total)}</span>
                   </div>
                 </div>
 
-                {/* Action Button */}
-                <button 
-                  onClick={handleAddToCartAndCheckout} 
-                  disabled={!selectedGuide || qty < 1 || !miniForm.fullName || !miniForm.phone} 
-                  className="w-full py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-bold text-lg shadow-lg shadow-indigo-200 hover:shadow-xl hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  <CheckCircle size={20} /> Xác nhận & Thanh toán
-                </button>
+                {/* NÚT THAO TÁC (Import component BookingActions) */}
+                <div className="pt-2 border-t border-slate-100">
+                    <p className="text-xs text-center text-slate-400 mb-3">Thao tác xử lý đơn hàng</p>
+                    <BookingActions 
+                        booking={selected}
+                        onChangeStatus={handleChangeStatus}
+                        onEdit={handleEdit}
+                        onRemove={handleRemove}
+                    />
+                </div>
+
               </div>
             </div>
-          </div>
-
+          ) : (
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-10 text-center min-h-[400px] flex flex-col items-center justify-center">
+              <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-4 text-slate-300">
+                 <FileText size={40} />
+              </div>
+              <h3 className="text-lg font-bold text-slate-700">Chưa chọn đơn hàng</h3>
+              <p className="text-slate-500 text-sm mt-2 max-w-[200px]">
+                Chọn một đơn hàng từ danh sách bên trái để xem chi tiết.
+              </p>
+            </div>
+          )}
         </div>
+
       </div>
-    </section>
+
+      {/* Toast */}
+      {toast.open && (
+        <div className={`fixed top-6 right-6 z-[70] px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-bounce-in text-white ${
+          toast.type === 'success' ? 'bg-emerald-600' : toast.type === 'warn' ? 'bg-rose-600' : 'bg-slate-800'
+        }`}>
+           {toast.type === 'success' ? <CheckCircle size={18}/> : <AlertCircle size={18}/>}
+           <span className="font-bold text-sm">{toast.message}</span>
+        </div>
+      )}
+    </div>
   );
 }
