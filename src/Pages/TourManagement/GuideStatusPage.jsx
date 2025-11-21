@@ -1,52 +1,47 @@
 import { useEffect, useMemo, useState } from "react";
 import { 
-  Search, UserCheck, UserX, Users, MapPin, Globe, 
-  RefreshCcw, CheckCircle, XCircle 
+  Search, UserCheck, UserX, Users, MapPin, Globe, RefreshCcw, CheckCircle, XCircle 
 } from "lucide-react";
 import guidesDefault from "../../data/guides"; 
 
-// 🔥 KEY ĐỒNG BỘ: Phải giống hệt bên GuideManagerPage
-const LS_KEY = "guides_status_manager_v2";
+const LS_KEY = "GUIDE_DATA_FINAL_V99";
 
 export default function GuideStatusPage() {
   const [guides, setGuides] = useState([]);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all"); 
 
-  // Hàm load dữ liệu từ localStorage
+  // 🔥 HÀM LOAD DỮ LIỆU THÔNG MINH (AUTO FIX)
   const loadData = () => {
     const saved = localStorage.getItem(LS_KEY);
+    let finalData = [];
+
     if (saved) {
-      setGuides(JSON.parse(saved));
-    } else {
-      // Nếu chưa có, lấy dữ liệu gốc
-      const initData = guidesDefault.map(g => ({...g, priceType: 'ngày'}));
-      setGuides(initData);
-      localStorage.setItem(LS_KEY, JSON.stringify(initData));
+      try {
+        finalData = JSON.parse(saved);
+      } catch (e) {
+        console.error("Lỗi đọc dữ liệu", e);
+      }
     }
+
+    // Logic mới: Nếu không có dữ liệu HOẶC dữ liệu bị rỗng [], tự động nạp lại gốc
+    if (!finalData || finalData.length === 0) {
+      console.log("Dữ liệu trống, đang nạp lại dữ liệu mặc định...");
+      finalData = guidesDefault.map(g => ({...g, priceType: 'ngày'}));
+      localStorage.setItem(LS_KEY, JSON.stringify(finalData));
+    }
+
+    setGuides(finalData);
   };
 
   useEffect(() => {
-    // 1. Load lần đầu
     loadData();
-
-    // 2. Lắng nghe sự kiện thay đổi từ các tab/trang khác (QUAN TRỌNG)
-    const handleStorageChange = (e) => {
-      // Nếu key thay đổi đúng là key của mình -> Load lại
-      if (e.key === LS_KEY) {
-        loadData();
-      }
-    };
-    
-    // 3. Lắng nghe sự kiện focus (Khi người dùng quay lại tab này)
-    const handleFocus = () => loadData();
-
+    const handleStorageChange = (e) => { if (e.key === LS_KEY) loadData(); };
     window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('focus', handleFocus);
-
+    window.addEventListener('focus', loadData);
     return () => {
       window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('focus', loadData);
     }
   }, []);
 
@@ -57,18 +52,16 @@ export default function GuideStatusPage() {
     });
     setGuides(updatedList);
     localStorage.setItem(LS_KEY, JSON.stringify(updatedList));
-    window.dispatchEvent(new Event("storage")); // Báo cho các trang khác
+    window.dispatchEvent(new Event("storage"));
   };
 
-  // 🔥 HÀM RESET DỮ LIỆU GỐC
   const handleReset = () => {
-    if(window.confirm("Bạn có chắc muốn xóa hết dữ liệu cũ và nạp lại 10 HDV gốc từ file?")) {
+    if(window.confirm("Bạn có chắc muốn nạp lại 10 HDV gốc từ file code?")) {
        const initData = guidesDefault.map(g => ({...g, priceType: 'ngày'}));
        setGuides(initData);
        localStorage.setItem(LS_KEY, JSON.stringify(initData));
-       // Bắn sự kiện để các tab khác cũng cập nhật theo
        window.dispatchEvent(new Event("storage"));
-       alert("Đã nạp lại dữ liệu gốc thành công!");
+       // alert("Đã nạp lại dữ liệu gốc!"); // Bỏ alert cho đỡ phiền
     }
   }
 
@@ -93,35 +86,27 @@ export default function GuideStatusPage() {
   return (
     <div className="min-h-screen bg-slate-50 p-6 font-sans text-slate-800">
       <div className="max-w-7xl mx-auto">
-        
-        {/* HEADER */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
           <div>
             <h1 className="text-2xl font-extrabold text-slate-900">Quản Lý Trạng Thái HDV</h1>
             <p className="text-slate-500 text-sm mt-1">Theo dõi và điều phối lịch làm việc</p>
           </div>
           
-          {/* 🔥 NÚT CẬP NHẬT DỮ LIỆU MỚI */}
-          <button 
-            onClick={handleReset} 
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-indigo-200 rounded-xl text-sm hover:bg-indigo-50 text-indigo-700 shadow-sm transition font-bold"
-          >
+          <button onClick={handleReset} className="flex items-center gap-2 px-4 py-2 bg-white border border-indigo-200 rounded-xl text-sm hover:bg-indigo-50 text-indigo-700 shadow-sm transition font-bold">
             <RefreshCcw size={16} /> Nạp lại dữ liệu gốc
           </button>
         </div>
 
-        {/* STATS CARDS */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <StatCard title="Tổng số HDV" value={stats.total} icon={Users} color="bg-indigo-50 text-indigo-600" />
           <StatCard title="Đang rảnh" value={stats.available} icon={UserCheck} color="bg-emerald-50 text-emerald-600" />
           <StatCard title="Đang bận" value={stats.busy} icon={UserX} color="bg-rose-50 text-rose-600" />
         </div>
 
-        {/* FILTER BAR */}
         <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 mb-6 flex flex-col md:flex-row gap-4 items-center justify-between">
           <div className="relative w-full md:w-96">
             <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Tìm tên HDV hoặc địa điểm..." className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all" />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Tìm tên HDV..." className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
           </div>
           <div className="flex gap-2">
             <FilterBtn label="Tất cả" active={filterStatus === "all"} onClick={() => setFilterStatus("all")} />
@@ -130,7 +115,6 @@ export default function GuideStatusPage() {
           </div>
         </div>
 
-        {/* GRID DANH SÁCH */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredGuides.map((guide) => (
             <div key={guide.id} className={`bg-white rounded-2xl p-5 shadow-sm border transition-all ${guide.available ? 'border-slate-100' : 'border-rose-100 bg-rose-50/10'}`}>
@@ -154,6 +138,17 @@ export default function GuideStatusPage() {
             </div>
           ))}
         </div>
+
+        {/* Hiển thị thông báo nếu vẫn chưa có dữ liệu */}
+        {filteredGuides.length === 0 && (
+           <div className="text-center py-20 text-slate-400 flex flex-col items-center">
+              <p>Danh sách đang trống.</p>
+              <button onClick={handleReset} className="mt-2 text-indigo-600 underline hover:text-indigo-800 font-bold">
+                 Bấm vào đây để nạp dữ liệu mẫu
+              </button>
+           </div>
+        )}
+
       </div>
     </div>
   );

@@ -123,7 +123,7 @@ export default function TourBookingFlow() {
     if (filters.style) filtered = filtered.filter((g) => g.style === filters.style);
     setRenderGuides(filtered);
 
-    // 🔥 LOGIC TỰ ĐỘNG CẬP NHẬT TRẠNG THÁI NGƯỜI ĐANG CHỌN
+    // LOGIC TỰ ĐỘNG CẬP NHẬT TRẠNG THÁI NGƯỜI ĐANG CHỌN
     if (selectedGuide) {
         const updatedGuide = guidesAll.find(g => g.id === selectedGuide.id);
         
