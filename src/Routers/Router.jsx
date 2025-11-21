@@ -1,22 +1,21 @@
-// src/Routers/Router.jsx
 import { Routes, Route, Navigate } from "react-router-dom";
 import Layout from "../components/Layout/Layout";
 
-// ... Các import trang User ...
+// --- User Pages ---
 import HomePage from "../Pages/HomePage/HomePage";
 import Tours from "../Pages/TourTab/Tours";
 import TourDetailLayout from "../Pages/CityTourDetail/TourDetailLayout";
-import TourBookingFlow from "../Pages/TourBookingFlow/TourBookingFlow";
+import TourBookingFlow from "../Pages/TourBookingFlow/TourBookingFlow"; // Trang đặt tour
 import OtherAi from "../Pages/OtherAi/OtherAi";
 import Contact from "../Pages/Contact/Contact";
 import Cart from "../Pages/Cart/Cart.jsx";
 import MyBookingsPage from "../Pages/Booking/MyBookings.jsx";
 
-// 🔥 SỬA ĐƯỜNG DẪN NÀY NẾU CHƯA SỬA (Thư mục Auth)
+// --- Auth Pages ---
 import LoginPage from "../Pages/Auth/LoginPage";
 import RegisterPage from "../Pages/Auth/RegisterPage";
 
-// ... Các import trang Admin ...
+// --- Admin Pages ---
 import BookingAdminPage from "../Pages/TourManagement/BookingAdminPage.jsx";
 import BookingListPage from "../Pages/TourManagement/BookingListPage.jsx";
 import QuickCreatePage from "../Pages/TourManagement/QuickCreatePage.jsx";
@@ -38,7 +37,10 @@ export default function Router() {
           <Route index element={<HomePage />} />
           <Route path="tours" element={<Tours />} />
           <Route path="tours/:slug" element={<TourDetailLayout />} />
+          
+          {/* 🔥 Đây là trang Đặt Tour (Flow chọn HDV) */}
           <Route path="booking" element={<TourBookingFlow />} /> 
+          
           <Route path="other-ai" element={<OtherAi />} />
           <Route path="contact" element={<Contact />} />
           <Route path="gio_hang" element={<Cart />} />

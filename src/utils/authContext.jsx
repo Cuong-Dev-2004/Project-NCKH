@@ -2,6 +2,8 @@
 import { createContext, useContext, useState, useEffect } from "react";
 
 const AuthContext = createContext();
+
+// 🔥 CẤU HÌNH API URL (Server bạn chạy port 3000)
 const BASE_URL = "http://localhost:3000/api"; 
 
 export const AuthProvider = ({ children }) => {
@@ -85,11 +87,18 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Đăng xuất
+  // --- ĐĂNG XUẤT (ĐÃ SỬA) ---
   const logout = () => {
     setUser(null);
     setToken("");
-    localStorage.clear();
+    
+    // ❌ KHÔNG DÙNG: localStorage.clear(); (Vì nó sẽ xóa sạch dữ liệu HDV)
+    
+    // ✅ CHỈ XÓA THÔNG TIN ĐĂNG NHẬP
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("user_role");
+    localStorage.removeItem("user_name");
+    
     window.location.href = "/login";
   };
 

@@ -1,488 +1,374 @@
+// src/Pages/CityTourDetail/TourDetailLayout.jsx
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { 
-  User, Phone, Calendar, Users, FileText, 
-  MapPin, Globe, Award, CheckCircle, Star, Calculator, PlusCircle, XCircle, RefreshCcw
-} from "lucide-react";
-import NavDown from "../../components/Ui/NavDownTourBookingFlow";
-import guidesDefault from "../../data/guides"; // Dữ liệu gốc (Fallback)
-import { vnd } from "../../utils/money";
 import { useCart } from "../../utils/cartContext.jsx";
+import { vnd } from "../../utils/money";
+import { 
+  Clock, Users, Calendar, MapPin, CheckCircle, XCircle, 
+  ChevronLeft, ChevronRight, X, Star, Info as InfoIcon 
+} from "lucide-react";
 
-// ✅ IMPORT DATA TOUR ĐỂ HIỂN THỊ SELECT BOX
-import { DetailPresets } from "../../data/Data";
+const TABS = [
+  { key: "desc", label: "MÔ TẢ" },
+  { key: "inc",  label: "BAO GỒM/LOẠI TRỪ" },
+  { key: "plan", label: "CHƯƠNG TRÌNH TOUR" },
+  { key: "kid",  label: "GIÁ VÉ TRẺ EM" },
+  { key: "rv",   label: "ĐÁNH GIÁ" },
+];
 
-// 🔥 KEY QUAN TRỌNG: Phải giống hệt bên Admin (GuideStatusPage & GuideManagerPage)
-const LS_GUIDE_STATUS = "guides_status_manager_v2";
-
-// Chuyển đổi Object Data thành Array để hiển thị trong SelectBox Tour
-const TOUR_LIST = Object.values(DetailPresets).map(t => ({
-  id: t.id,
-  name: t.name,
-  price: t.price,
-  location: t.locationText
-}));
-
-function countDaysInclusive(startDate, endDate) {
-  if (!startDate) return 1;
-  const s = new Date(startDate);
-  const e = new Date(endDate || startDate);
-  const ONE = 24 * 60 * 60 * 1000;
-  return Math.max(1, Math.round((e - s) / ONE) + 1);
-}
-
-function calcTotal({ basePrice, qty, people = 1, extraRatePerPerson = 0.1, commissionRate = 0.2, platformFee = 0, taxRate = 0, packageFee = 0 }) {
-  const subtotal = (Number(basePrice) || 0) * (Number(qty) || 0);
-  const extraPeopleCount = Math.max(0, Number(people || 1) - 1);
-  const extraPeopleFee = subtotal * (Number(extraRatePerPerson) || 0) * extraPeopleCount;
-  const commission = (subtotal + extraPeopleFee) * (Number(commissionRate) || 0);
-  const pf = Number(platformFee) || 0;
-  const tax = commission * (Number(taxRate) || 0);
-  
-  const totalPackageFee = (Number(packageFee) || 0) * people; 
-  
-  const total = subtotal + extraPeopleFee + commission + pf + tax + totalPackageFee;
-  return { subtotal, extraPeopleFee, commission, platformFee: pf, tax, packageFee: totalPackageFee, total, extraPeopleCount };
-}
-
-// Component Input dùng chung
-const FormInput = ({ icon: Icon, label, ...props }) => (
-  <div className="space-y-1.5">
-    <label className="text-xs font-bold text-slate-500 uppercase tracking-wide ml-1">{label}</label>
-    <div className="relative">
-      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-        <Icon size={18} />
-      </div>
-      <input
-        {...props}
-        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all shadow-sm"
-      />
-    </div>
-  </div>
-);
-
-export default function TourBookingFlow() {
+export default function TourDetailLayout() {
+  const { state } = useLocation();
   const navigate = useNavigate();
-  const locationHook = useLocation();
   const { add } = useCart();
-  const qs = useMemo(() => new URLSearchParams(locationHook.search), [locationHook.search]);
 
-  // --- 1. XỬ LÝ TOUR ---
-  const [selectedTourId, setSelectedTourId] = useState(Number(qs.get("tourId")) || 0);
-  const currentTour = useMemo(() => TOUR_LIST.find(t => t.id === selectedTourId), [selectedTourId]);
+  // ===== DATA (Xử lý props an toàn) =====
+  const props = useMemo(() => {
+    const s = state?.propData || {};
+    return {
+      id: s.id ?? Date.now(),
+      name: s.name ?? "Chi tiết tour du lịch",
+      locationText: s.locationText ?? "Việt Nam",
+      price: Number(s.price ?? 0),
+      oldPrice: Number(s.oldPrice ?? 0),
+      duration: s.duration ?? 1,
+      capacity: s.capacity ?? 25,
+      minAge: s.minAge ?? "10+",
+      pickup: s.pickup ?? "Khách sạn trung tâm",
+      images: (Array.isArray(s.images) && s.images.length
+        ? s.images
+        : [
+            "https://picsum.photos/id/1015/1200/800",
+            "https://picsum.photos/id/1016/1200/800",
+            "https://picsum.photos/id/1018/1200/800",
+            "https://picsum.photos/id/1019/1200/800",
+          ]),
+      data1: Array.isArray(s.data1) ? s.data1 : [],
+      include: s.include || ["HDV địa phương", "Xe đưa đón", "Vé tham quan", "Nước suối"],
+      exclude: s.exclude || ["Ăn uống ngoài chương trình", "Chi phí cá nhân", "Thuế VAT"],
+      plan: s.itinerary || ["Đón khách – tham quan", "Ăn trưa – nghỉ ngơi", "Mua sắm – tiễn khách"],
+      kid: s.childPolicy || ["< 5 tuổi: Free", "5-9 tuổi: 70%", "> 10 tuổi: 100%"],
+      rating: s.rating ?? 5,
+    };
+  }, [state?.propData]);
 
-  // --- 2. XỬ LÝ HDV (Đồng bộ Admin) ---
-  const [guidesAll, setGuidesAll] = useState([]);
+  // ===== UI state =====
+  const [tab, setTab] = useState("desc");
+  const [active, setActive] = useState(0);
+  const [qty, setQty] = useState(1);
+  const [date, setDate] = useState("");
+  const [errMsg, setErrMsg] = useState("");
+  const [isLB, setIsLB] = useState(false);
 
-  // Hàm load dữ liệu thông minh
-  const loadGuidesData = () => {
-    const savedGuides = localStorage.getItem(LS_GUIDE_STATUS);
-    let finalGuides = [];
-    
-    if (savedGuides) {
-      // Lấy từ LocalStorage nếu Admin đã có chỉnh sửa
-      finalGuides = JSON.parse(savedGuides);
-    } else {
-      // Nếu chưa có, lấy từ file gốc
-      finalGuides = guidesDefault;
-    }
-    // Đảm bảo tất cả đều tính giá theo ngày
-    setGuidesAll(finalGuides.map(g => ({ ...g, priceType: "ngày" })));
-  };
+  // Lightbox logic
+  const openLB = (idx = 0) => { setActive(idx); setIsLB(true); };
+  const closeLB = () => setIsLB(false);
+  const last = props.images.length - 1;
+  const prev = () => setActive((i) => (i === 0 ? last : i - 1));
+  const next = () => setActive((i) => (i === last ? 0 : i + 1));
 
   useEffect(() => {
-    // Load ngay khi vào trang
-    loadGuidesData();
-    
-    // 🔥 LẮNG NGHE SỰ KIỆN THAY ĐỔI TỪ ADMIN (Realtime giữa các tab)
-    const handleStorageChange = (e) => {
-      if (e.key === LS_GUIDE_STATUS) {
-        loadGuidesData();
-      }
+    if (!isLB) return;
+    const onKey = (e) => {
+      if (e.key === "Escape") closeLB();
+      if (e.key === "ArrowRight") next();
+      if (e.key === "ArrowLeft") prev();
     };
-    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isLB, active]); // eslint-disable-line
 
-    // 🔥 LẮNG NGHE SỰ KIỆN FOCUS (Khi người dùng bấm quay lại tab này)
-    const handleFocus = () => loadGuidesData();
-    window.addEventListener('focus', handleFocus);
+  const total = (props.price || 0) * (qty || 0);
 
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('focus', handleFocus);
-    };
-  }, []);
-
-  // --- 3. XỬ LÝ FORM & FILTER ---
-  const [filters, setFilters] = useState({
-    location: qs.get("destination") || (currentTour?.location?.split(',')[0] || ""),
-    language: qs.get("language") || "",
-    style: qs.get("guideStyle") || "",
-    startDate: qs.get("startDate") || "",
-    endDate: qs.get("endDate") || "",
-    people: Number(qs.get("people") || 1),
-  });
-
-  const [miniForm, setMiniForm] = useState({
-    fullName: qs.get("name") || "",
-    phone: qs.get("phone") || "",
-    startDate: qs.get("startDate") || "",
-    endDate: qs.get("endDate") || "",
-    notes: qs.get("notes") || "",
-  });
-
-  const priceCfg = { commissionRate: 0.2, platformFee: 0, taxRate: 0, extraRatePerPerson: 0.1 };
-  const [renderGuides, setRenderGuides] = useState([]);
-  const [selectedGuide, setSelectedGuide] = useState(null);
-  const [page, setPage] = useState(1);
-  const PER_PAGE = 6;
-
-  // Lọc danh sách HDV
-  useEffect(() => {
-    let filtered = guidesAll;
-    if (filters.location) filtered = filtered.filter((g) => g.location.includes(filters.location));
-    if (filters.language) filtered = filtered.filter((g) => g.language === filters.language);
-    if (filters.style) filtered = filtered.filter((g) => g.style === filters.style);
-    setRenderGuides(filtered);
-  }, [filters, guidesAll]);
-
-  const pagedGuides = useMemo(() => renderGuides.slice((page - 1) * PER_PAGE, page * PER_PAGE), [renderGuides, page]);
-  const totalPages = Math.ceil(renderGuides.length / PER_PAGE);
-
-  const onPickGuide = (guide) => {
-    if (!guide.available) return; // Chặn nếu bận
-    setSelectedGuide(guide);
-    setFilters(s => ({ ...s, location: s.location || guide.location, language: s.language || guide.language, style: s.style || guide.style }));
-  };
-
-  const qty = useMemo(() => {
-    if (!selectedGuide) return 0;
-    return countDaysInclusive(miniForm.startDate || filters.startDate, miniForm.endDate || filters.endDate);
-  }, [selectedGuide, miniForm.startDate, miniForm.endDate, filters.startDate, filters.endDate]);
-
-  const money = useMemo(() => {
-    if (!selectedGuide) return { subtotal: 0, extraPeopleFee: 0, commission: 0, platformFee: 0, tax: 0, packageFee: 0, total: 0, extraPeopleCount: 0 };
-    return calcTotal({
-      basePrice: selectedGuide.price,
-      qty,
-      people: filters.people,
-      ...priceCfg,
-      packageFee: currentTour?.price || 0,
-    });
-  }, [selectedGuide, qty, filters.people, currentTour]);
-
-  const handleAddToCartAndCheckout = () => {
-    if (!selectedGuide) return alert("Vui lòng chọn hướng dẫn viên!");
-    
-    // Kiểm tra trạng thái lần cuối trước khi đặt (tránh trường hợp vừa có người khác đặt hoặc Admin vừa đổi)
-    if (!selectedGuide.available) {
-         alert(`Rất tiếc, HDV ${selectedGuide.name} vừa chuyển sang trạng thái BẬN.`);
-         loadGuidesData(); // Tải lại dữ liệu
-         return;
+  const handleBook = () => {
+    if (!date) {
+      setErrMsg("Vui lòng chọn ngày khởi hành.");
+      return;
     }
-
-    if (!miniForm.fullName || !miniForm.phone) return alert("Vui lòng nhập họ tên và số điện thoại!");
-    const start = miniForm.startDate || filters.startDate;
-    const end = miniForm.endDate || filters.endDate;
-    if (!start || !end) return alert("Vui lòng chọn ngày đi và về.");
-
-    const keyBase = `bk-${Date.now()}`;
-
-    // 1. Thêm HDV
+    setErrMsg("");
+    
+    // Thêm vào giỏ hàng
     add({
-      key: `${keyBase}-guide`,
-      id: selectedGuide.id,
-      name: `HDV ${selectedGuide.name} (${qty} ngày)`,
-      img: selectedGuide.image,
-      price: selectedGuide.price, 
+      key: `tour-${props.id}-${Date.now()}`, // Key duy nhất
+      id: props.id, 
+      name: props.name, 
+      price: props.price, 
+      img: props.images?.[0],
       qty: qty,
       meta: {
-        type: 'guide',
-        checkIn: start,
-        checkOut: end,
-        adults: filters.people,
-        customerName: miniForm.fullName,
-        phone: miniForm.phone,
-        note: miniForm.notes,
-        guideId: selectedGuide.id,
-        tourId: currentTour?.id || 0,
+        type: 'tour', // Đánh dấu là tour thường
+        checkIn: date,
+        adults: qty,
+        tourId: props.id
       }
     });
-
-    // 2. Thêm Gói Tour (Nếu có)
-    if (currentTour) {
-      add({
-        key: `${keyBase}-tour`,
-        id: currentTour.id,
-        name: `Gói Tour: ${currentTour.name}`,
-        img: currentTour.images?.[0] || "https://via.placeholder.com/150",
-        price: currentTour.price,
-        qty: filters.people,
-        meta: {
-          type: 'tour',
-          tourId: currentTour.id,
-          customerName: miniForm.fullName,
-          checkIn: start
-        }
-      });
-    }
-
     navigate("/gio_hang");
   };
 
-  const resetFilters = () => { setFilters(s => ({ ...s, location: "", language: "", style: "" })); setPage(1); };
-
   return (
-    <section className="w-full bg-slate-50 py-10 text-slate-800 min-h-screen font-sans">
-      <div className="max-w-[1400px] mx-auto px-4 md:px-6">
+    <div className="bg-[#fafafa] min-h-screen pb-10">
+      <div className="mx-auto max-w-7xl px-4 md:px-6 py-6">
         
-        {/* Page Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
-          <div>
-            <h2 className="text-3xl font-bold text-slate-800">Chọn Hướng Dẫn Viên</h2>
-            {currentTour ? (
-              <div className="flex items-center gap-2 mt-2 text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-lg w-fit border border-indigo-100">
-                <MapPin size={16} />
-                <span className="text-sm font-medium">Đang đặt cho: <b>{currentTour.name}</b></span>
-              </div>
-            ) : (
-               <div className="flex items-center gap-2 mt-2 text-slate-500 bg-white px-3 py-1.5 rounded-lg w-fit border border-slate-200">
-                <PlusCircle size={16} />
-                <span className="text-sm">Chưa chọn tour (Thuê HDV tự do)</span>
-              </div>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-             <button onClick={loadGuidesData} className="text-xs flex items-center gap-1 bg-white px-3 py-2 rounded-lg border hover:bg-slate-50 text-slate-500 active:scale-95 transition">
-                <RefreshCcw size={14}/> Cập nhật trạng thái
-             </button>
-             <div className="text-sm text-slate-500 bg-white px-4 py-2 rounded-full shadow-sm border border-slate-100">
-                Tìm thấy <b>{renderGuides.length}</b> kết quả
-             </div>
+        {/* Title Header */}
+        <div className="mb-6">
+          <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight mb-2">
+            {props.name}
+          </h1>
+          <div className="flex items-center text-sm text-slate-500 gap-2">
+            <MapPin size={16} className="text-rose-500" />
+            <span>{props.locationText} • Việt Nam</span>
+            <span className="mx-2">|</span>
+            <div className="flex items-center gap-1">
+               <Star size={14} className="fill-amber-400 text-amber-400" />
+               <span className="font-semibold text-slate-700">{props.rating}</span> 
+               <span>(Đánh giá tốt)</span>
+            </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_380px] gap-8 items-start">
           
-          {/* LEFT COLUMN: Filters & List */}
-          <div className="lg:col-span-8 space-y-6">
+          {/* LEFT COLUMN */}
+          <section className="space-y-8">
             
-            {/* Filter Bar */}
-            <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-wrap items-center gap-3">
-              <NavDown data={[...new Set(guidesAll.map(g => g.location))]} type="Địa phương" onChange={v => setFilters(s => ({ ...s, location: v }))} />
-              <NavDown data={[...new Set(guidesAll.map(g => g.language))]} type="Ngôn ngữ" onChange={v => setFilters(s => ({ ...s, language: v }))} />
-              <NavDown data={[...new Set(guidesAll.map(g => g.style))]} type="Phong cách" onChange={v => setFilters(s => ({ ...s, style: v }))} />
-              <button onClick={resetFilters} className="ml-auto text-sm px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors">
-                Xóa bộ lọc
-              </button>
-            </div>
-
-            {/* Guide Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {pagedGuides.map((guide) => (
-                <div key={guide.id} className={`relative group bg-white rounded-2xl p-5 shadow-sm border border-slate-100 hover:shadow-md hover:-translate-y-1 transition-all duration-300 ${selectedGuide?.id === guide.id ? 'ring-2 ring-indigo-500 border-transparent' : ''} ${!guide.available ? 'opacity-60 grayscale pointer-events-none bg-slate-50' : ''}`}>
-                  
-                  {/* Badge Trạng Thái */}
-                  <div className={`absolute top-4 right-4 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide ${guide.available ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
-                    {guide.available ? "Có sẵn" : "Đang bận"}
-                  </div>
-
-                  {/* Info */}
-                  <div className="flex flex-col items-center text-center mb-4">
-                    <img 
-                      src={guide.image} 
-                      alt={guide.name} 
-                      className={`w-20 h-20 rounded-full object-cover ring-4 shadow-sm mb-3 ${guide.available ? 'ring-slate-50' : 'ring-rose-50 grayscale'}`} 
-                      onError={(e) => e.target.src = `https://ui-avatars.com/api/?name=${guide.name}&background=random`}
-                    />
-                    <h3 className="font-bold text-lg text-slate-800">{guide.name}</h3>
-                    <div className="flex items-center justify-center gap-2 text-xs text-slate-500 mt-1">
-                      <span className="flex items-center gap-1"><MapPin size={12}/> {guide.location}</span>
-                      <span>•</span>
-                      <span className="flex items-center gap-1"><Globe size={12}/> {guide.language}</span>
-                    </div>
-                  </div>
-
-                  {/* Specs */}
-                  <div className="grid grid-cols-2 gap-2 mb-4 text-xs text-slate-600 bg-slate-50 p-3 rounded-xl">
-                      <div className="flex items-center gap-1.5"><Award size={14} className="text-indigo-500"/> {guide.style}</div>
-                      <div className="flex items-center gap-1.5 justify-end"><Star size={14} className="text-amber-400 fill-amber-400"/> {guide.rating}</div>
-                  </div>
-
-                  {/* Price & Action */}
-                  <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
-                    <div>
-                      <span className="text-lg font-bold text-indigo-600">{vnd(guide.price)}</span>
-                      <span className="text-xs text-slate-400"> /ngày</span>
-                    </div>
-                    {/* 🔥 NÚT SẼ BỊ KHÓA NẾU ADMIN BÁO BẬN */}
-                    <button 
-                      disabled={!guide.available} 
-                      onClick={() => onPickGuide(guide)} 
-                      className={`px-5 py-2 rounded-xl text-sm font-semibold shadow-sm transition-all flex items-center gap-2 ${
-                        guide.available 
-                          ? 'bg-slate-900 text-white hover:bg-indigo-600' 
-                          : 'bg-rose-50 text-rose-400 border border-rose-100 cursor-not-allowed'
-                      }`}
-                    >
-                      {selectedGuide?.id === guide.id ? (
-                        <> <CheckCircle size={14}/> Đã chọn</>
-                      ) : (
-                        guide.available ? "Chọn" : "Bận"
-                      )}
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="flex justify-center gap-2 pt-4">
-                <button disabled={page === 1} onClick={() => setPage(p => p - 1)} className="w-10 h-10 flex items-center justify-center rounded-xl border bg-white hover:bg-slate-50 disabled:opacity-50">«</button>
-                <span className="h-10 px-4 flex items-center justify-center rounded-xl border bg-white font-semibold text-indigo-600">{page} / {totalPages}</span>
-                <button disabled={page === totalPages} onClick={() => setPage(p => p + 1)} className="w-10 h-10 flex items-center justify-center rounded-xl border bg-white hover:bg-slate-50 disabled:opacity-50">»</button>
-              </div>
-            )}
-          </div>
-
-          {/* RIGHT COLUMN: Booking Form */}
-          <div className="lg:col-span-4">
-            <div className="bg-white rounded-3xl shadow-xl border border-slate-100 sticky top-6 overflow-hidden">
-              
-              {/* Form Header */}
-              <div className="bg-slate-900 p-6 text-white">
-                <h3 className="text-xl font-bold flex items-center gap-2">
-                  <FileText className="text-indigo-400" /> Thông tin đặt tour
-                </h3>
-                <p className="text-slate-400 text-xs mt-1">Vui lòng điền đầy đủ thông tin bên dưới</p>
-              </div>
-
-              <div className="p-6 space-y-5">
-                
-                {/* Select Box Chọn Tour */}
-                <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wide ml-1">Gói Tour (Tùy chọn)</label>
-                    <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><MapPin size={18} /></div>
-                        <select 
-                            className="w-full pl-10 pr-8 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all shadow-sm appearance-none cursor-pointer truncate"
-                            value={selectedTourId}
-                            onChange={(e) => setSelectedTourId(Number(e.target.value))}
-                        >
-                            <option value={0}>-- Chỉ thuê HDV (Không bao gồm tour) --</option>
-                            {TOUR_LIST.map(t => (
-                                <option key={t.id} value={t.id}>
-                                    {t.name} ({vnd(t.price)})
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                </div>
-
-                {/* Customer Info */}
-                <div className="space-y-4">
-                  <FormInput 
-                    icon={User} label="Họ và tên" 
-                    placeholder="VD: Nguyễn Văn A" 
-                    value={miniForm.fullName} 
-                    onChange={e => setMiniForm(s => ({ ...s, fullName: e.target.value }))} 
-                  />
-                  <FormInput 
-                    icon={Phone} label="Số điện thoại" 
-                    placeholder="090..." 
-                    value={miniForm.phone} 
-                    onChange={e => setMiniForm(s => ({ ...s, phone: e.target.value }))} 
-                  />
-                </div>
-
-                {/* Dates & People */}
-                <div className="grid grid-cols-2 gap-4">
-                  <FormInput 
-                    icon={Calendar} label="Ngày đi" type="date"
-                    value={miniForm.startDate || filters.startDate} 
-                    onChange={e => setMiniForm(s => ({ ...s, startDate: e.target.value }))} 
-                  />
-                  <FormInput 
-                    icon={Calendar} label="Ngày về" type="date"
-                    value={miniForm.endDate || filters.endDate} 
-                    onChange={e => setMiniForm(s => ({ ...s, endDate: e.target.value }))} 
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wide ml-1">Số lượng khách</label>
-                   <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><Users size={18} /></div>
-                      <input 
-                        type="number" min={1} 
-                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-                        value={filters.people} 
-                        onChange={e => setFilters(s => ({ ...s, people: Math.max(1, Number(e.target.value)) }))} 
-                      />
-                   </div>
-                </div>
-
-                <div className="space-y-1.5">
-                   <label className="text-xs font-bold text-slate-500 uppercase tracking-wide ml-1">Ghi chú</label>
-                   <textarea 
-                      rows={3} 
-                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
-                      placeholder="Yêu cầu đặc biệt..." 
-                      value={miniForm.notes} 
-                      onChange={e => setMiniForm(s => ({ ...s, notes: e.target.value }))} 
-                   />
-                </div>
-
-                {/* Cost Summary */}
-                <div className="bg-indigo-50/60 p-5 rounded-2xl border border-indigo-100 space-y-2.5 text-sm text-slate-700">
-                  <div className="flex items-center gap-2 font-bold text-indigo-800 mb-2 border-b border-indigo-200 pb-2">
-                      <Calculator size={16} /> Chi tiết tạm tính
-                  </div>
-
-                  {currentTour && (
-                    <div className="flex justify-between items-center">
-                      <span>Gói Tour ({filters.people} khách)</span>
-                      <span className="font-bold">{vnd(money.packageFee)}</span>
-                    </div>
-                  )}
-
-                  <div className="flex justify-between items-center">
-                    <span>Thuê HDV ({qty} ngày)</span>
-                    <span className="font-bold">{vnd(money.subtotal)}</span>
-                  </div>
-                  
-                  {money.extraPeopleFee > 0 && (
-                    <div className="flex justify-between items-center text-xs text-slate-500">
-                      <span>Phụ thu khách thêm</span>
-                      <span>{vnd(money.extraPeopleFee)}</span>
-                    </div>
-                  )}
-                  
-                  <div className="flex justify-between items-center text-xs text-slate-500">
-                    <span>Phí dịch vụ & Thuế</span>
-                    <span>{vnd(money.commission + money.tax)}</span>
-                  </div>
-                  
-                  <div className="pt-3 mt-2 border-t border-indigo-200 flex justify-between items-center">
-                    <span className="font-bold text-slate-800 text-lg">Tổng cộng</span>
-                    <span className="font-extrabold text-2xl text-indigo-600">{vnd(money.total)}</span>
-                  </div>
-                </div>
-
-                {/* Action Button */}
-                <button 
-                  onClick={handleAddToCartAndCheckout} 
-                  disabled={!selectedGuide || !selectedGuide.available || qty < 1 || !miniForm.fullName || !miniForm.phone} 
-                  className="w-full py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-bold text-lg shadow-lg shadow-indigo-200 hover:shadow-xl hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            {/* Gallery */}
+            <div className="bg-white rounded-2xl overflow-hidden shadow-sm p-2 border border-slate-100">
+              <div className="relative rounded-xl overflow-hidden group">
+                <button
+                  onClick={() => openLB(active)}
+                  className="absolute left-3 top-3 z-10 text-xs px-3 py-1.5 rounded-full bg-black/50 text-white backdrop-blur-md hover:bg-black/70 transition"
                 >
-                  <CheckCircle size={20} /> Xác nhận & Thanh toán
+                  + {props.images.length} Hình ảnh
+                </button>
+
+                <img
+                  src={props.images[active]}
+                  alt={`img-${active}`}
+                  className="w-full aspect-[16/9] object-cover cursor-zoom-in transition-transform duration-500 hover:scale-105"
+                  onClick={() => openLB(active)}
+                />
+                
+                {/* Navigation Buttons on Image */}
+                <button onClick={(e) => {e.stopPropagation(); prev()}} className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/80 hover:bg-white text-slate-800 flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition-all">
+                    <ChevronLeft size={20}/>
+                </button>
+                <button onClick={(e) => {e.stopPropagation(); next()}} className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/80 hover:bg-white text-slate-800 flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition-all">
+                    <ChevronRight size={20}/>
+                </button>
+              </div>
+
+              {/* Thumbnails */}
+              <div className="mt-2 grid grid-cols-5 gap-2">
+                {props.images.map((src, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setActive(i)}
+                    className={`relative rounded-lg overflow-hidden h-16 md:h-20 ${active === i ? "ring-2 ring-offset-1 ring-rose-500" : "opacity-70 hover:opacity-100"}`}
+                  >
+                    <img src={src} alt={`thumb-${i}`} className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Info Strip */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <Info icon={Clock} title="Thời gian" value={`${props.duration} ngày`} />
+                <Info icon={Users} title="Quy mô" value={`Tối đa ${props.capacity}`} />
+                <Info icon={Star} title="Độ tuổi" value={props.minAge} />
+                <Info icon={MapPin} title="Đón tại" value={props.pickup} />
+              </div>
+            </div>
+
+            {/* Content Tabs */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden min-h-[400px]">
+              <div className="flex flex-wrap gap-2 px-6 pt-6 border-b border-slate-100 pb-4">
+                {TABS.map((t) => (
+                  <button
+                    key={t.key}
+                    onClick={() => setTab(t.key)}
+                    className={`px-4 py-2 text-sm font-bold rounded-full transition-all ${
+                      tab === t.key
+                        ? "bg-slate-900 text-white shadow-md"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="p-6">
+                {tab === "desc" && (
+                  <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <h3 className="font-bold text-lg text-slate-900 mb-4">Trải nghiệm nổi bật</h3>
+                    <ul className="space-y-3">
+                      {(props.data1.length ? props.data1 : ["Khám phá điểm đến nổi bật.", "Trải nghiệm ẩm thực địa phương.", "Hướng dẫn viên tận tâm."]).map((x, i) => (
+                        <li key={i} className="flex items-start gap-3 text-slate-700">
+                          <CheckCircle size={18} className="text-emerald-500 mt-0.5 shrink-0"/>
+                          <span>{x}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {tab === "inc" && (
+                  <div className="grid md:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div>
+                      <div className="font-bold text-emerald-600 mb-3 flex items-center gap-2"><CheckCircle size={18}/> ĐÃ BAO GỒM</div>
+                      <ul className="space-y-2 text-slate-700">
+                        {props.include.map((x, i) => <li key={i} className="flex items-start gap-2"><span className="w-1.5 h-1.5 bg-emerald-400 rounded-full mt-2"></span>{x}</li>)}
+                      </ul>
+                    </div>
+                    <div>
+                      <div className="font-bold text-rose-600 mb-3 flex items-center gap-2"><XCircle size={18}/> CHƯA BAO GỒM</div>
+                      <ul className="space-y-2 text-slate-700">
+                        {props.exclude.map((x, i) => <li key={i} className="flex items-start gap-2"><span className="w-1.5 h-1.5 bg-rose-400 rounded-full mt-2"></span>{x}</li>)}
+                      </ul>
+                    </div>
+                  </div>
+                )}
+
+                {tab === "plan" && (
+                  <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div className="space-y-4">
+                      {props.plan.map((x, i) => (
+                        <div key={i} className="flex gap-4">
+                            <div className="flex flex-col items-center">
+                                <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-sm">{i + 1}</div>
+                                {i !== props.plan.length - 1 && <div className="w-0.5 h-full bg-slate-100 my-1"></div>}
+                            </div>
+                            <div className="pb-4">
+                                <h4 className="font-bold text-slate-900">Ngày {i + 1}</h4>
+                                <p className="text-slate-600 mt-1">{x.replace(/^Ngày\s*\d+:\s*/i, "")}</p>
+                            </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {tab === "kid" && (
+                  <ul className="space-y-3 text-slate-700 bg-slate-50 p-4 rounded-xl animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    {props.kid.map((x, i) => (
+                        <li key={i} className="flex items-center gap-2"><InfoIcon size={16} className="text-blue-500"/> {x}</li>
+                    ))}
+                  </ul>
+                )}
+
+                {tab === "rv" && (
+                  <div className="text-center py-10 text-slate-500">
+                    <Star size={40} className="mx-auto text-slate-200 mb-3"/>
+                    <p>Chưa có đánh giá nào. Hãy là người đầu tiên trải nghiệm!</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
+
+          {/* RIGHT - BOOKING CARD */}
+          <aside className="lg:sticky lg:top-24 space-y-6">
+            <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 p-6">
+              <div className="flex items-end gap-2 mb-6 pb-6 border-b border-slate-100">
+                <div className="text-3xl font-extrabold text-rose-600">{vnd(props.price)}</div>
+                {!!props.oldPrice && <div className="text-sm text-slate-400 line-through mb-1">{vnd(props.oldPrice)}</div>}
+                <div className="text-xs text-slate-500 mb-1.5">/ khách</div>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Ngày khởi hành</label>
+                    <div className="relative">
+                        <Calendar className="absolute left-3 top-2.5 text-slate-400" size={18}/>
+                        <input
+                        type="date"
+                        value={date}
+                        onChange={(e) => setDate(e.target.value)}
+                        className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm focus:ring-2 focus:ring-rose-500 focus:bg-white outline-none transition-all"
+                        />
+                    </div>
+                    {errMsg && <div className="text-xs text-rose-500 mt-1 flex items-center gap-1"><InfoIcon size={12}/> {errMsg}</div>}
+                </div>
+
+                <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Số lượng khách</label>
+                    <div className="flex items-center rounded-xl border border-slate-200 overflow-hidden bg-white">
+                        <button onClick={() => setQty(q => Math.max(1, q - 1))} className="w-12 h-10 flex items-center justify-center hover:bg-slate-50 active:bg-slate-100 transition text-slate-600 font-bold text-lg">−</button>
+                        <input
+                        type="number" min={1} value={qty}
+                        onChange={(e) => setQty(Math.max(1, Number(e.target.value) || 1))}
+                        className="flex-1 h-10 text-center border-x border-slate-100 text-sm outline-none font-semibold text-slate-900"
+                        />
+                        <button onClick={() => setQty(q => q + 1)} className="w-12 h-10 flex items-center justify-center hover:bg-slate-50 active:bg-slate-100 transition text-slate-600 font-bold text-lg">+</button>
+                    </div>
+                </div>
+
+                <div className="bg-slate-50 p-4 rounded-xl flex justify-between items-center">
+                    <span className="text-sm text-slate-600 font-medium">Tổng tạm tính</span>
+                    <span className="text-lg font-bold text-slate-900">{vnd(total)}</span>
+                </div>
+
+                <button
+                    onClick={handleBook}
+                    disabled={!date}
+                    className={`w-full py-3.5 rounded-xl text-white font-bold text-lg shadow-lg transition-all transform active:scale-[0.98] ${
+                    date ? "bg-gradient-to-r from-rose-600 to-orange-600 hover:shadow-rose-200" : "bg-slate-300 cursor-not-allowed"
+                    }`}
+                >
+                    Đặt Tour Ngay
                 </button>
               </div>
             </div>
-          </div>
 
+            {/* Small Promo */}
+            <div className="rounded-2xl overflow-hidden relative group cursor-pointer">
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent z-10"/>
+                <img src={props.images[1] || "https://picsum.photos/id/1022/640/360"} alt="promo" className="w-full h-40 object-cover group-hover:scale-105 transition-transform duration-500"/>
+                <div className="absolute bottom-4 left-4 z-20 text-white">
+                    <div className="text-xs font-bold uppercase bg-white/20 backdrop-blur-sm px-2 py-0.5 rounded w-fit mb-1">Khám phá</div>
+                    <h4 className="font-bold">Vẻ đẹp tiềm ẩn {props.locationText}</h4>
+                </div>
+            </div>
+          </aside>
         </div>
       </div>
-    </section>
+
+      {/* ===== LIGHTBOX ===== */}
+      {isLB && (
+        <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4" onClick={closeLB}>
+          <div className="relative w-full max-w-6xl" onClick={(e) => e.stopPropagation()}>
+            <button onClick={closeLB} className="absolute -top-12 right-0 text-white/70 hover:text-white transition"><X size={32}/></button>
+            <div className="flex items-center justify-between gap-4">
+                <button onClick={prev} className="w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition"><ChevronLeft size={32}/></button>
+                <img src={props.images[active]} alt="lightbox" className="max-h-[80vh] object-contain rounded-lg shadow-2xl"/>
+                <button onClick={next} className="w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition"><ChevronRight size={32}/></button>
+            </div>
+            <div className="mt-6 flex justify-center gap-2 overflow-x-auto py-2">
+                {props.images.map((src, i) => (
+                    <button key={i} onClick={() => setActive(i)} className={`w-16 h-12 rounded-md overflow-hidden border-2 transition ${active === i ? "border-rose-500 opacity-100" : "border-transparent opacity-50 hover:opacity-80"}`}>
+                        <img src={src} className="w-full h-full object-cover"/>
+                    </button>
+                ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Helper Component hiển thị thông tin nhỏ
+function Info({ icon: Icon, title, value }) {
+  return (
+    <div className="flex items-start gap-3 p-2 rounded-lg hover:bg-slate-50 transition">
+      <div className="w-10 h-10 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+        <Icon size={20} />
+      </div>
+      <div>
+        <div className="text-xs font-bold text-slate-400 uppercase tracking-wide">{title}</div>
+        <div className="font-semibold text-slate-800 text-sm md:text-base">{value}</div>
+      </div>
+    </div>
   );
 }
