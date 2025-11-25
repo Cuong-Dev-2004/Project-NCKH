@@ -1,6 +1,4 @@
 // src/data/Data.js
-// Preset chi tiết cho toàn bộ 15 tour (map 1-1 với TOURS)
-// Có thể chỉnh capacity/minAge/pickup/data1 tùy ý.
 
 const mkImages = (cover) => ([
   cover,
@@ -21,7 +19,7 @@ export const DetailPresets = {
     capacity: 35,
     minAge: "6+",
     pickup: "Khách sạn trung tâm Đà Nẵng",
-    images: mkImages("https://picsum.photos/id/1015/1200/800"),
+    images: mkImages("https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?q=80&w=800"),
     data1: [
       "Check-in Cầu Rồng, Biển Mỹ Khê, Bán đảo Sơn Trà.",
       "Tham quan Ngũ Hành Sơn & Làng đá Non Nước.",
@@ -40,7 +38,7 @@ export const DetailPresets = {
     capacity: "Không giới hạn",
     minAge: "10+",
     pickup: "01 Phan Đăng Lưu - Cổng Công Viên Châu Á",
-    images: mkImages("https://picsum.photos/id/1016/1200/800"),
+    images: mkImages("https://vcdn-dulich.vnecdn.net/2021/11/05/Ba-Na-Hills-7032-1636082148.jpg"),
     data1: [
       "Đi cáp treo — chiêm ngưỡng Núi Chúa về đêm.",
       "Dạo Làng Pháp, show nghệ thuật đường phố.",
@@ -59,7 +57,7 @@ export const DetailPresets = {
     capacity: 30,
     minAge: "6+",
     pickup: "Khách sạn trung tâm Đà Nẵng",
-    images: mkImages("https://picsum.photos/id/1018/1200/800"),
+    images: mkImages("https://images.unsplash.com/photo-1565060169673-6733c5a06e7d?q=80&w=800"),
     data1: [
       "Tham quan Linh Ứng Bãi Bụt – tượng Quan Âm.",
       "Lên núi Ngũ Hành Sơn, khám động & chùa Linh Ứng.",
@@ -78,7 +76,7 @@ export const DetailPresets = {
     capacity: "Không giới hạn",
     minAge: "8+",
     pickup: "Điểm hẹn trung tâm Đà Nẵng",
-    images: mkImages("https://picsum.photos/id/1019/1200/800"),
+    images: mkImages("https://ik.imagekit.io/tvlk/blog/2022/11/kinh-nghiem-du-lich-cu-lao-cham-1.jpg"),
     data1: [
       "Di chuyển bằng cáp treo đạt nhiều kỷ lục.",
       "Check-in Cầu Vàng “bàn tay khổng lồ” huyền ảo.",
@@ -97,7 +95,7 @@ export const DetailPresets = {
     capacity: 35,
     minAge: "6+",
     pickup: "Khách sạn Đà Nẵng",
-    images: mkImages("https://picsum.photos/id/1022/1200/800"),
+    images: mkImages("https://images.unsplash.com/photo-1583417319070-4a69db38a482?q=80&w=800"),
     data1: [
       "Khám phá Ngũ Hành Sơn – động, chùa, làng đá.",
       "Di chuyển Hội An – dạo phố đêm, ngắm đèn lồng.",
@@ -116,7 +114,7 @@ export const DetailPresets = {
     capacity: 40,
     minAge: "8+",
     pickup: "Cảng Cửa Đại",
-    images: mkImages("https://picsum.photos/id/1020/1200/800"),
+    images: mkImages("https://hoianexpress.com.vn/wp-content/uploads/2020/10/rung-dua-bay-mau-hoi-an-1.jpg"),
     data1: [
       "Cano cao tốc ra đảo – trải nghiệm lướt sóng.",
       "Tắm biển Bãi Chồng/Bãi Ông – nước xanh trong.",
@@ -135,7 +133,7 @@ export const DetailPresets = {
     capacity: 30,
     minAge: "6+",
     pickup: "Chợ Hội An",
-    images: mkImages("https://picsum.photos/id/1021/1200/800"),
+    images: mkImages("https://images.unsplash.com/photo-1560242296-b4a614575346?q=80&w=800"),
     data1: [
       "Dạo phố cổ – check-in góc đèn lồng lung linh.",
       "Thả hoa đăng sông Hoài, chụp ảnh Chùa Cầu.",
@@ -154,7 +152,7 @@ export const DetailPresets = {
     capacity: 25,
     minAge: "6+",
     pickup: "Bến thuyền Hội An",
-    images: mkImages("https://picsum.photos/id/1023/1200/800"),
+    images: mkImages("https://vcdn-dulich.vnecdn.net/2019/07/24/dong-thien-duong-1-1563939180.jpg"),
     data1: [
       "Tham quan làng gốm truyền thống hàng trăm năm.",
       "Tự tay nặn gốm & mang sản phẩm về làm kỷ niệm.",
@@ -173,7 +171,7 @@ export const DetailPresets = {
     capacity: 20,
     minAge: "6+",
     pickup: "Điểm hẹn Hội An",
-    images: mkImages("https://picsum.photos/id/1029/1200/800"),
+    images: mkImages("https://media.vneconomy.vn/images/upload/2023/07/17/cau-vang-ba-na-hills-da-nang.jpg"),
     data1: [
       "Đạp xe qua làng rau Trà Quế – chụp ảnh vườn xanh.",
       "Học trồng, tưới, thu hoạch rau sạch cùng nông dân.",
@@ -192,7 +190,7 @@ export const DetailPresets = {
     capacity: 30,
     minAge: "4+",
     pickup: "Rừng Dừa Bảy Mẫu",
-    images: mkImages("https://picsum.photos/id/1030/1200/800"),
+    images: mkImages("https://vtv1.mediacdn.vn/thumb_w/650/2022/4/20/ca-hue-16504253951281425365591.jpg"),
     data1: [
       "Chèo thuyền thúng qua rừng dừa nước.",
       "Xem biểu diễn quay thúng & tung lưới.",

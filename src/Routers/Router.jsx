@@ -1,54 +1,68 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-
 import Layout from "../components/Layout/Layout";
+
+// --- User Pages ---
 import HomePage from "../Pages/HomePage/HomePage";
 import Tours from "../Pages/TourTab/Tours";
-import Booking from "../Pages/Booking/Booking";
-import TourBookingFlow from "../Pages/TourBookingFlow/TourBookingFlow";
+import TourDetailLayout from "../Pages/CityTourDetail/TourDetailLayout";
+import TourBookingFlow from "../Pages/TourBookingFlow/TourBookingFlow"; // Trang đặt tour
 import OtherAi from "../Pages/OtherAi/OtherAi";
 import Contact from "../Pages/Contact/Contact";
 import Cart from "../Pages/Cart/Cart.jsx";
-import TourDetailLayout from "../Pages/CityTourDetail/TourDetailLayout";
-
-// Khách xem đơn
 import MyBookingsPage from "../Pages/Booking/MyBookings.jsx";
 
-// ADMIN
+// --- Auth Pages ---
+import LoginPage from "../Pages/Auth/LoginPage";
+import RegisterPage from "../Pages/Auth/RegisterPage";
+
+// --- Admin Pages ---
 import BookingAdminPage from "../Pages/TourManagement/BookingAdminPage.jsx";
 import BookingListPage from "../Pages/TourManagement/BookingListPage.jsx";
 import QuickCreatePage from "../Pages/TourManagement/QuickCreatePage.jsx";
 import RevenuePage from "../Pages/TourManagement/RevenuePage.jsx";
+import GuideStatusPage from "../Pages/TourManagement/GuideStatusPage.jsx";
+import GuideManagerPage from "../Pages/TourManagement/GuideManagerPage.jsx";
+
+import { AuthProvider } from "../utils/authContext";
+import ProtectedRoute from "./ProtectedRoute"; 
 
 export default function Router() {
   return (
-    <Routes>
-      {/* Layout tổng */}
-      <Route path="/" element={<Layout />}>
-        
-        {/* Trang chính */}
-        <Route index element={<HomePage />} />
-        <Route path="tours" element={<Tours />} />
-        <Route path="tours/:slug" element={<TourDetailLayout />} />
-        <Route path="booking" element={<Booking />} />
-        <Route path="tour-booking-flow" element={<TourBookingFlow />} />
-        <Route path="other-ai" element={<OtherAi />} />
-        <Route path="contact" element={<Contact />} />
-        <Route path="gio_hang" element={<Cart />} />
+    <AuthProvider>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
 
-        {/* ⭐ NEW: Trang danh sách đơn của khách */}
-        <Route path="my-bookings" element={<MyBookingsPage />} />
+        <Route path="/" element={<Layout />}>
+          <Route index element={<HomePage />} />
+          <Route path="tours" element={<Tours />} />
+          <Route path="tours/:slug" element={<TourDetailLayout />} />
+          
+          {/* 🔥 Đây là trang Đặt Tour (Flow chọn HDV) */}
+          <Route path="booking" element={<TourBookingFlow />} /> 
+          
+          <Route path="other-ai" element={<OtherAi />} />
+          <Route path="contact" element={<Contact />} />
+          <Route path="gio_hang" element={<Cart />} />
 
-        {/* ADMIN */}
-        <Route path="admin/bookings" element={<BookingAdminPage />}>
-          <Route index element={<BookingListPage />} />
-          <Route path="list" element={<BookingListPage />} />
-          <Route path="create" element={<QuickCreatePage />} />
-          <Route path="revenue" element={<RevenuePage />} />
+          <Route element={<ProtectedRoute />}>
+             <Route path="my-bookings" element={<MyBookingsPage />} />
+          </Route>
+
+          <Route element={<ProtectedRoute requireAdmin={true} />}>
+            <Route path="admin/bookings" element={<BookingAdminPage />}>
+              <Route index element={<BookingListPage />} />
+              <Route path="list" element={<BookingListPage />} />
+              <Route path="create" element={<QuickCreatePage />} />
+              <Route path="revenue" element={<RevenuePage />} />
+              <Route path="guides" element={<GuideStatusPage />} />
+              <Route path="guide-manager" element={<GuideManagerPage />} />
+            </Route>
+          </Route>
+
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
-
-        {/* Redirect tất cả đường dẫn lỗi */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Route>
-    </Routes>
+      </Routes>
+    </AuthProvider>
   );
 }

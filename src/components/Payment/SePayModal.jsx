@@ -1,4 +1,3 @@
-// src/components/Payment/SePayModal.jsx
 import { useEffect, useState } from "react";
 
 const BANK_CODE  = import.meta.env.VITE_VIETQR_BANK    || "MB";
@@ -11,7 +10,6 @@ function vietQRImageURL({ bank, account, amount, content, accountName }) {
     addInfo: content || "",
     accountName: accountName || "",
   });
-
   return `https://img.vietqr.io/image/${bank}-${account}-qr_only.png?${params.toString()}`;
 }
 
@@ -23,47 +21,36 @@ export default function SePayModal({
   onSuccess,
   onError,
   sepayQrImage,
-  sepayCheckoutUrl,
-  sepayMeta,
   onPaidConfirm,
+  initialName = "",
+  initialPhone = "",
+  initialEmail = ""
 }) {
   const [err, setErr] = useState("");
   const [vietqrUrl, setVietqrUrl] = useState("");
   const usingSePay = !!sepayQrImage;
 
-  // NEW user inputs
+  // State lưu thông tin khách hàng
   const [customerName, setCustomerName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
 
+  // Điền sẵn dữ liệu nếu có
+  useEffect(() => {
+    if (open) {
+      setCustomerName(initialName || "");
+      setPhone(initialPhone || "");
+      setEmail(initialEmail || "");
+    }
+  }, [open, initialName, initialPhone, initialEmail]);
+
   useEffect(() => {
     if (!open) return;
-
     if (!amount || amount <= 0) {
-      const msg = "Số tiền (amount) không hợp lệ.";
-      setErr(msg);
-      onError?.(msg);
+      setErr("Số tiền không hợp lệ.");
       return;
     }
-    if (!orderId) {
-      const msg = "Thiếu mã đơn hàng (orderId).";
-      setErr(msg);
-      onError?.(msg);
-      return;
-    }
-
-    if (usingSePay) {
-      setErr("");
-      onSuccess?.({
-        method: "SePay",
-        orderId,
-        amount,
-        checkoutUrl: sepayCheckoutUrl || null,
-        meta: sepayMeta || {},
-      });
-      return;
-    }
-
+    // Tạo QR
     const url = vietQRImageURL({
       bank: BANK_CODE,
       account: ACCOUNT_NO,
@@ -71,157 +58,70 @@ export default function SePayModal({
       amount,
       content: orderId,
     });
-
     setVietqrUrl(url);
     setErr("");
-
-    onSuccess?.({
-      method: "VietQR",
-      orderId,
-      amount,
-      bank: BANK_CODE,
-      account: ACCOUNT_NO,
-    });
-  }, [open]);
+  }, [open, amount, orderId]);
 
   if (!open) return null;
 
   const moneyFmt = (n) => Number(n).toLocaleString("vi-VN") + " đ";
 
-  const copy = async (t) => {
-    try {
-      await navigator.clipboard.writeText(t);
-      alert("Đã sao chép!");
-    } catch {
-      alert("Không thể sao chép. Vui lòng thử lại!");
+  // Xử lý khi bấm nút xác nhận
+  const handleConfirm = () => {
+    if (!customerName.trim()) {
+      alert("Vui lòng nhập Họ và tên người chuyển khoản!");
+      return;
     }
+    if (!phone.trim()) {
+      alert("Vui lòng nhập Số điện thoại liên hệ!");
+      return;
+    }
+
+    // Gửi dữ liệu ra ngoài
+    onPaidConfirm({
+      customerName: customerName, // Key quan trọng
+      phone: phone,
+      email: email,
+      orderId,
+      amount
+    });
   };
 
   return (
-    <div className="fixed inset-0 z-[999] flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-
-      <div className="relative z-10 w-[92%] max-w-lg rounded-2xl bg-white shadow-2xl p-6 space-y-5">
-
-        {/* TITLE */}
-        <div>
-          <h3 className="text-2xl font-bold text-gray-800">
-            Thanh toán đơn hàng
-          </h3>
-          <p className="text-sm text-gray-500 mt-1">
-            Mã đơn: <b>{orderId}</b>
-          </p>
+    <div className="fixed inset-0 z-[999] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative z-10 w-full max-w-lg rounded-2xl bg-white shadow-2xl p-6 space-y-5 max-h-[90vh] overflow-y-auto">
+        
+        <div className="text-center">
+          <h3 className="text-2xl font-bold text-gray-800">Thanh toán đơn hàng</h3>
+          <p className="text-sm text-gray-500">Mã đơn: <span className="font-mono font-bold text-indigo-600">{orderId}</span></p>
         </div>
 
-        {/* SỐ TIỀN */}
-        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 shadow-sm">
-          <div className="flex justify-between items-center">
-            <span className="text-gray-600">Số tiền cần thanh toán</span>
-            <span className="text-xl font-bold text-indigo-700">{moneyFmt(amount)}</span>
-          </div>
-        </div>
-
-        {/* THÔNG TIN NGÂN HÀNG */}
-        <div className="bg-gray-50 rounded-xl p-4 shadow-sm space-y-2">
-          <h4 className="font-semibold text-gray-700 text-sm">Thông tin chuyển khoản</h4>
-
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <p className="text-gray-500">Ngân hàng</p>
-              <p className="font-medium">{BANK_CODE}</p>
+        <div className="flex justify-center">
+            <div className="p-2 border-2 border-indigo-100 rounded-xl shadow-sm">
+                <img src={usingSePay ? sepayQrImage : vietqrUrl} className="w-48 h-48 object-contain rounded-lg" alt="QR Code" />
             </div>
-            <div className="text-right">
-              <p className="text-gray-500">Số tài khoản</p>
-              <button onClick={() => copy(ACCOUNT_NO)}
-                className="font-medium hover:underline">
-                {ACCOUNT_NO}
-              </button>
-            </div>
-
-            <div>
-              <p className="text-gray-500">Chủ tài khoản</p>
-              <p className="font-medium">{ACCOUNT_NM}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-gray-500">Nội dung CK</p>
-              <button onClick={() => copy(orderId)}
-                className="font-medium hover:underline">
-                {orderId}
-              </button>
-            </div>
-          </div>
         </div>
 
-        {/* FORM KHÁCH HÀNG */}
-        <div className="bg-gray-50 rounded-xl p-4 shadow-sm space-y-3">
-          <h4 className="font-semibold text-gray-700 text-sm">Thông tin khách hàng</h4>
-
-          <input
-            type="text"
-            placeholder="Họ và tên"
-            value={customerName}
-            onChange={(e) => setCustomerName(e.target.value)}
-            className="w-full bg-white px-3 py-2 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-200 outline-none"
-          />
-
-          <input
-            type="text"
-            placeholder="Số điện thoại"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            className="w-full bg-white px-3 py-2 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-200 outline-none"
-          />
-
-          <input
-            type="email"
-            placeholder="Email (không bắt buộc)"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full bg-white px-3 py-2 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-200 outline-none"
-          />
+        <div className="text-center">
+            <p className="text-gray-500 text-sm">Số tiền cần thanh toán</p>
+            <p className="text-3xl font-extrabold text-indigo-600">{moneyFmt(amount)}</p>
         </div>
 
-        {/* QR CODE */}
-        <div className="flex flex-col items-center">
-          <div className="bg-white shadow-md rounded-xl p-3">
-            <img
-              src={usingSePay ? sepayQrImage : vietqrUrl}
-              className="w-52 h-52 rounded-xl"
-            />
-          </div>
+        {/* FORM NHẬP THÔNG TIN */}
+        <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-3">
+            <h4 className="font-bold text-gray-700 text-sm uppercase">Thông tin người đặt</h4>
+            <input type="text" placeholder="Họ và tên *" value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm" />
+            <input type="text" placeholder="Số điện thoại *" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm" />
+            <input type="email" placeholder="Email nhận vé (Tùy chọn)" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm" />
         </div>
 
-        {/* ERROR */}
-        {err && <p className="text-red-600 text-sm">{err}</p>}
+        {err && <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg text-center">{err}</div>}
 
-        {/* BUTTONS */}
-        <div className="flex justify-end gap-3">
-          <button
-            className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200"
-            onClick={onClose}
-          >
-            Hủy
-          </button>
-
-          <button
-            className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow hover:brightness-110"
-            onClick={() => {
-              if (!customerName.trim() || !phone.trim()) {
-                alert("Vui lòng nhập HỌ TÊN và SỐ ĐIỆN THOẠI");
-                return;
-              }
-
-              onClose?.();
-              onPaidConfirm?.({
-                name: customerName,
-                phone,
-                email,
-                orderId,
-                amount,
-              });
-            }}
-          >
-            Đã chuyển xong / OK
+        <div className="grid grid-cols-2 gap-3 pt-2">
+          <button className="px-4 py-3 rounded-xl bg-gray-100 text-gray-700 font-semibold hover:bg-gray-200 transition" onClick={onClose}>Quay lại</button>
+          <button className="px-4 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-bold shadow-lg shadow-indigo-200 hover:opacity-90 transition transform active:scale-95" onClick={handleConfirm}>
+            Đã chuyển khoản xong
           </button>
         </div>
 
