@@ -8,6 +8,7 @@ const port = 3000;
 const app = express();
 const AuthRouter = require('./src/Routers/Auth.js');
 const AdminRouter = require('./src/Routers/Admin.js');
+const StaffRouter = require("./src/Routers/Staff.js");
 dotenv.config();
 
 mongoose.connect(process.env.MONGODB_URL)
@@ -25,4 +26,6 @@ app.get('/', (req, res) => {
 // routing 
 app.use("/api/auth", AuthRouter);
 app.use("/api/admin", AdminRouter);
+app.use("/api/staff", StaffRouter);
+
 app.listen(port, () => console.log("App Listening " + port));

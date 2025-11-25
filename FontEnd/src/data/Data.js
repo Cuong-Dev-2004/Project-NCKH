@@ -48,7 +48,6 @@ export const DetailPresets = {
       "Khám phá Fantasy Park (tuỳ khung giờ mở).",
     ],
   },
-
   son_tra_ngu_hanh_son: {
     id: 3,
     name: "Sơn Trà – Ngũ Hành Sơn 1 Ngày",

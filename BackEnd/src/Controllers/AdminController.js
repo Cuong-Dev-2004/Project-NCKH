@@ -5,7 +5,7 @@ const User = require("../model/User/User");
 const AdminProfile = require("../model/User/AdminProfile");
 const Partner = require("../model/User/partner");
 const bookingSchema = require("../model/booking/bookingSchema");
-
+const Staff = require("../model/User/Staff");
 // Them Xoa Sua
 const AdminController = {
     // Quan ly Phan Quyen Nguoi Dung
@@ -13,9 +13,8 @@ const AdminController = {
     createAdminProfile: async (req, res) => {
         try {
             const { email, username, password, role = "admin", fullName, phone, avatar } = req.body;
-            const hashpass = bcrypt.hashSync(password, 10);
 
-            const user = new User({ email, username, password: hashpass, role });
+            const user = new User({ email, username, password, role });
             await user.save();
 
             const adminProfile = new AdminProfile({
@@ -112,12 +111,13 @@ const AdminController = {
             if (!user) {
                 res.status(500).json({ message: "Khong Co User" });
             }
-            await user.replaceOne({
+            await user({
                 username,
                 password
             })
             await user.save();
-            await parent.replaceOne({
+            const parent = Partner.findOne({ userId: user._id });
+            await parent({
                 fullName,
                 phone,
                 avatar,
@@ -125,6 +125,99 @@ const AdminController = {
             })
             await parent.save();
             res.status(200).json({ message: "Update Thanh Cong" });
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    },
+    // Quan Ly Nhan Vien 
+    CreateNhanVien: async (req, res) => {
+        try {
+            const {
+                email,
+                username,
+                password,
+                role = "staff",
+                FullName,
+                Location,
+                CCCD,
+                Birthday
+            } = req.body;
+            const user = new User({ email, username, password, role });
+            await user.save();
+            const staff = new Staff({
+                userId: user.id,
+                FullName,
+                Location,
+                CCCD,
+                Birthday
+            })
+            await staff.save();
+
+            res.status(200).json({ message: "Them Nhan Vien Thanh Cong", staff });
+
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    },
+    // * Xoa Nhan Vien
+    RemoveNhanVien: async (req, res) => {
+        try {
+            const { email } = req.body;
+            const user = await User.find({ email });
+            if (!user) {
+                return res.status(404).json({ message: "Khong Co Nhan Vien" });
+            }
+            await Staff.findOneAndDelete({ userId: user._id });
+            await User.findByIdAndDelete(user._id);
+
+            res.status(200).json({ message: "Xoa Doi Tac Thanh Cong" });
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    },
+    // * Chinh sUA Nhan Vien
+    UpDateNhanVien: async (req, res) => {
+        try {
+            const {
+                email,
+                username,
+                password,
+                role,
+                FullName,
+                Location,
+                CCCD,
+                Birthday
+            } = req.body;
+            const user = await User.find({ email });
+            if (!user) {
+                res.status(500).json({ message: "Khong Co User" });
+            }
+            await user({
+                username,
+                password,
+                role,
+            })
+            user.save();
+            const stafff = await Staff.find({ userId: user._id });
+            await stafff({
+                FullName,
+                Location,
+                CCCD,
+                Birthday,
+            })
+            stafff.save();
+            res.status(200).json({ message: "Update Thanh Cong" });
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    },
+
+    // Lay Tat Ca Nhan Vien 
+
+    getAllStaff: async (req, res) => {
+        try {
+            const staff = await Staff.find();
+            res.status(200).json({ message: "Get Pass ", staff });
         } catch (error) {
             res.status(500).json({ error: error.message });
         }

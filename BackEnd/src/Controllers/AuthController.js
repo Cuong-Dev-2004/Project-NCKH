@@ -10,13 +10,14 @@ const AuthControler = {
                 return res.status(500).json({ message: "Nguoi Dung Khong Ton Tai" });
             }
             const isMatch = await bcrypt.compare(password, user.password);
+            { console.log(password, user.password, isMatch) };
             if (!isMatch) {
                 return res.status(401).json({ message: "Sai mật khẩu" });
             }
             const token = jwt.sign(
                 { userId: user._id, role: user.role },
                 process.env.JWT_SECRET || "secretKey",
-                { expiresIn: "1h" }
+                { expiresIn: "1d" }
             );
             res.status(200).json({
                 message: "Đăng nhập thành công",
@@ -34,13 +35,12 @@ const AuthControler = {
     },
     Logout: async (req, res) => {
         try {
-            const token = req.headers.authorization.split(" ")[1];
-            const decoded = jwt.decode(token);
             res.status(200).json({ message: "Đăng xuất thành công" });
         } catch (error) {
             res.status(500).json({ message: error.message });
         }
     }
+
 }
 
 module.exports = AuthControler;
