@@ -187,7 +187,6 @@ export default function Contact() {
           </div>
         </div>
       </div>
-
       <div className="h-10" />
     </div>
   );
