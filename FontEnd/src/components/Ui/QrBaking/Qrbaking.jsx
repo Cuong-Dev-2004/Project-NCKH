@@ -10,15 +10,12 @@ function QrBaking({ form, currentTour, setShowQR, setForm, onSuccess }) {
         try {
             // Lấy ID tour từ form HOẶC từ currentTour (nếu người dùng chọn từ trang chủ)
             const finalTourId = form.tour || (currentTour ? currentTour._id : null);
-
+            { console.log(form.price) }
             const payload = {
                 touristId: getUserid(),
                 guideId: form.guide?._id || null,
-
-                // --- SỬA Ở ĐÂY: Đổi tên key thành tourId để khớp Backend ---
                 tourId: finalTourId,
-                // -----------------------------------------------------------
-
+                price: form?.price || 0,
                 dateFrom: form.dateFrom,
                 dateTo: form.dateTo,
                 guests: form.guests,

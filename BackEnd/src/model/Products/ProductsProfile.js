@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 
 
 const ProductSchema = new mongoose.Schema({
-    guideId: { type: mongoose.Schema.Types.ObjectId, ref: "Guide", required: true },
+    guideId: { type: mongoose.Schema.Types.ObjectId, ref: "Guide" },
     name: { type: String, required: true },
     locationText: { type: String, required: true },
     location: { type: String, required: true },
@@ -11,7 +11,6 @@ const ProductSchema = new mongoose.Schema({
     duration: { type: Number, required: true },
     capacity: { type: String, required: true },
     minAge: { type: String, required: true },
-
     pickup: { type: String, required: true },
     images: { type: [String], required: true },
     data1: { type: [String], required: true }

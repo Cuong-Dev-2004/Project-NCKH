@@ -27,8 +27,9 @@ function TourBookingFlow() {
     dateTo: "",
     guests: 1,
     note: "",
+    price: 0
+
   });
-  { console.log(form) }
 
   // PRICE
   const [days, setDays] = useState(0);
@@ -95,6 +96,7 @@ function TourBookingFlow() {
     setGuidePrice(tGuidePrice);
     setServiceTax(tServiceTax);
     setTotalPrice(tTotal);
+    setForm(prev => ({ ...prev, price: tTotal }))
   }, [currentTour, form.guide, days, form.guests]);
 
   // ---- SELECT GUIDE ----
